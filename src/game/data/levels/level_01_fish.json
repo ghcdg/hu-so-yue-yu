@@ -206,5 +206,13 @@
   ],
   "revealPosition": { "x": 2250, "y": 160 },
   "totalCoins": 5,
-  "totalHidden": 1
+  "totalHidden": 1,
+  "epilogue": {
+    "speaker": "老伯",
+    "lines": [
+      "没想到你真的做到了,年轻人。",
+      "记住,做人如果冇梦想,跟咸鱼有咩分别?",
+      "这只是开始,下一关还有更多粤语金句等着你。"
+    ]
+  }
 }

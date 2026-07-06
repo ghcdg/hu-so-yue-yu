@@ -50,6 +50,16 @@ export const COLORS = {
   HIGHLIGHT_BG_ALPHA: 0.35
 } as const
 
+/** 统一圆角半径(px) */
+export const BORDER_RADIUS = {
+  /** 小型卡片(金币/平台标签) */
+  SM: 4,
+  /** 中型卡片(对话/提示/NPC) */
+  MD: 6,
+  /** 大型卡片(揭示/结算) */
+  LG: 10
+} as const
+
 /**
  * 伪图卡片类型默认样式表 - 单一来源,TextSprite 导入使用
  * 颜色以 DATA_MODEL.md 第三章为准
@@ -66,18 +76,19 @@ export interface TextSpriteTypeStyle {
   text: number
   bg: number
   bgAlpha: number // 0 = 透明
+  borderRadius: number // 圆角半径(px)
 }
 
 export const TEXT_SPRITE_STYLES: Record<
   'character' | 'object' | 'scenery' | 'dialogue' | 'hint' | 'result',
   TextSpriteTypeStyle
 > = {
-  character: { border: 0xff8c00, text: 0xffffff, bg: 0x000000, bgAlpha: 0 },
-  object: { border: 0x1e90ff, text: 0xffffff, bg: 0x000000, bgAlpha: 0 },
-  scenery: { border: 0x888888, text: 0xdddddd, bg: 0x000000, bgAlpha: 0 },
-  dialogue: { border: 0x8b4513, text: 0xffffff, bg: 0x000000, bgAlpha: 0.7 },
-  hint: { border: 0xffd700, text: 0x000000, bg: 0xffffff, bgAlpha: 0.9 },
-  result: { border: 0xffd700, text: 0xffffff, bg: 0x000000, bgAlpha: 0.85 }
+  character: { border: 0xff8c00, text: 0xffffff, bg: 0x000000, bgAlpha: 0.5, borderRadius: BORDER_RADIUS.MD },
+  object: { border: 0x1e90ff, text: 0xffffff, bg: 0x000000, bgAlpha: 0.5, borderRadius: BORDER_RADIUS.SM },
+  scenery: { border: 0x888888, text: 0xdddddd, bg: 0x000000, bgAlpha: 0.5, borderRadius: BORDER_RADIUS.SM },
+  dialogue: { border: 0x8b4513, text: 0xffffff, bg: 0x000000, bgAlpha: 0.5, borderRadius: BORDER_RADIUS.MD },
+  hint: { border: 0xffd700, text: 0x000000, bg: 0x000000, bgAlpha: 0.5, borderRadius: BORDER_RADIUS.MD },
+  result: { border: 0xffd700, text: 0xffffff, bg: 0x000000, bgAlpha: 0.5, borderRadius: BORDER_RADIUS.LG }
 }
 
 /** UI 视图名称(中文,用于显示) */

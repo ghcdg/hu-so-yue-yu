@@ -200,6 +200,9 @@ export class LevelScene extends Phaser.Scene {
     // ── ESC 通关 ──
     this.input.keyboard?.on('keydown-ESC', () => this.finishLevel())
 
+    // 场景关闭时清理
+    this.events.on('shutdown', this.onShutdown, this)
+
     // 启动 UIScene
     this.scene.launch(SCENE.UI)
     eventBus.emit({ type: 'level-start', levelId: LEVEL.id })
@@ -376,9 +379,22 @@ export class LevelScene extends Phaser.Scene {
     this.events.emit('hide-surprise-reveal')
   }
 
-  /** 每帧:对话走远关闭 + 互动提示更新 */
+  /** 每帧:掉落检测 + 对话走远关闭 + 互动提示更新 */
   update(): void {
     if (!this.player) return
+
+    // 掉落检测(超出世界底部 → 复活)
+    const worldH = LEVEL.worldSize.height
+    if (this.player.y > worldH + 80) {
+      // 关闭对话(如果有)
+      if (this.dialogActive) {
+        this.closeDialog()
+        this.events.emit('close-dialog')
+      }
+      this.player.respawn(LEVEL.spawn.x, LEVEL.spawn.y)
+      this.events.emit('show-toast', '掉下去了!回到起点')
+      return
+    }
 
     // 对话走远自动关闭(统一用 dialogAnchor 检测 NPC/惊喜对话)
     if (this.dialogAnchor) {
@@ -420,13 +436,23 @@ export class LevelScene extends Phaser.Scene {
       type: 'level-complete',
       result: {
         levelId: LEVEL.id,
+        levelName: LEVEL.name,
         coins: this.coins,
         totalCoins: LEVEL.totalCoins,
         hiddenFound: this.hidden,
         totalHidden: LEVEL.totalHidden,
         timeMs: this.time.now - this.startTime,
-        rank: this.coins >= LEVEL.totalCoins ? '梦想家' : '咸鱼翻身'
+        rank: this.coins >= LEVEL.totalCoins ? '梦想家' : this.coins >= 3 ? '咸鱼之王' : '咸鱼翻身',
+        epilogue: LEVEL.epilogue
       }
     })
+  }
+
+  /** 场景关闭时清理(防止内存泄漏) */
+  private onShutdown(): void {
+    this.events.off('shutdown', this.onShutdown, this)
+    this.events.off('player-interact')
+    this.input.keyboard?.off('keydown-ESC')
+    this.scene.stop(SCENE.UI)
   }
 }

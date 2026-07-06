@@ -42,47 +42,47 @@ function startGame() {
   gap: 20px;
   padding: 40px 20px;
   box-sizing: border-box;
-  color: #f5f5f5;
+  color: var(--color-text-primary);
 }
 .title {
   font-size: 56px;
   margin: 0;
-  color: #ffd166;
+  color: var(--color-accent);
   letter-spacing: 8px;
 }
 .subtitle {
   font-size: 18px;
-  color: #a0a0c0;
+  color: var(--color-text-secondary);
   margin: 0 0 20px;
 }
 .card {
   width: min(520px, 90%);
   padding: 28px 32px;
-  background: #16213e;
-  border: 2px solid #4a4a6a;
-  border-radius: 8px;
+  background: var(--color-bg-light);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-md);
   text-align: center;
 }
 .card-title {
   font-size: 24px;
-  color: #ffd166;
+  color: var(--color-accent);
   margin-bottom: 8px;
 }
 .card-desc {
   font-size: 14px;
-  color: #a0a0c0;
+  color: var(--color-text-secondary);
   margin-bottom: 24px;
 }
 .start-btn {
   font-size: 18px;
   padding: 12px 48px;
-  background: #ffd166;
-  color: #1a1a2e;
+  background: var(--btn-primary-bg);
+  color: var(--btn-primary-color);
   border: none;
-  border-radius: 4px;
+  border-radius: var(--btn-radius);
   cursor: pointer;
   font-weight: bold;
-  transition: transform 0.1s ease;
+  transition: var(--btn-transition);
 }
 .start-btn:hover {
   transform: scale(1.04);
@@ -93,7 +93,7 @@ function startGame() {
 .hint {
   margin-top: 24px;
   font-size: 13px;
-  color: #6a6a8a;
+  color: var(--color-text-muted);
   text-align: center;
   line-height: 1.6;
 }

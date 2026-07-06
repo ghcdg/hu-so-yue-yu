@@ -126,6 +126,8 @@ export interface LevelData {
   revealPosition: { x: number; y: number }
   totalCoins: number
   totalHidden: number
+  /** 伏笔台词(结算页显示,老伯再次出现埋第二关悬念) */
+  epilogue?: { speaker: string; lines: string[] }
 }
 
 /** 将 SentenceData 转为 Sentence(shared 类型) */

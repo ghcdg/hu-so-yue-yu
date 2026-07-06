@@ -6,6 +6,7 @@
 /** 关卡结算结果 */
 export interface LevelResult {
   levelId: string
+  levelName: string
   coins: number
   totalCoins: number
   hiddenFound: number
@@ -13,6 +14,8 @@ export interface LevelResult {
   timeMs: number
   /** 评价等级:咸鱼翻身 / 咸鱼之王 / 梦想家 */
   rank: string
+  /** 伏笔台词(关卡结束后显示,埋下一关悬念) */
+  epilogue?: { speaker: string; lines: string[] }
 }
 
 /** 最终揭示的句子(粤语 + 粤拼 + 普通话释义) */

@@ -56,6 +56,8 @@ export interface TextSpriteConfig {
   bgColor?: string | number
   /** 边框粗细,默认 3 */
   borderWidth?: number
+  /** 圆角半径,缺省按 type 取默认 */
+  borderRadius?: number
   /** 是否高亮(背景立即变色) */
   highlight?: boolean
   /** .gif 滚动速度(字符/秒),默认 5 */
@@ -99,8 +101,8 @@ export class TextSprite extends Phaser.GameObjects.Container {
   readonly interactHint: string | null
 
   // 子对象
-  private background: Phaser.GameObjects.Rectangle
-  private borderRect: Phaser.GameObjects.Rectangle
+  private background: Phaser.GameObjects.Graphics
+  private borderGfx: Phaser.GameObjects.Graphics
   private mainText: Phaser.GameObjects.Text
   private subtitleText: Phaser.GameObjects.Text | null = null
 
@@ -108,15 +110,23 @@ export class TextSprite extends Phaser.GameObjects.Container {
   private cardWidth: number
   private cardHeight: number
   private borderWidth: number
+  private borderRadius: number
 
   // 状态
   private highlighted = false
+  private currentBgColor: number
+  private currentBgAlpha: number
+  private currentBorderColor: number
 
   // .gif 滚动状态
   private scrollCharOffset = 0
   private scrollDisplayLength = 0
   private scrollLongText = ''
   private scrollFontSize = 16
+
+  // 文字裁剪 mask(仅 .gif 模式,放在 scene 层级避免遮文字)
+  private clipMask: Phaser.Display.Masks.GeometryMask | null = null
+  private maskGraphics: Phaser.GameObjects.Graphics | null = null
 
   // 动效状态
   private animationType: TextSpriteAnimation = 'none'
@@ -145,24 +155,28 @@ export class TextSprite extends Phaser.GameObjects.Container {
     this.cardWidth = config.size?.width ?? DEFAULT_WIDTH
     this.cardHeight = config.size?.height ?? DEFAULT_HEIGHT
     this.borderWidth = config.borderWidth ?? DEFAULT_BORDER_WIDTH
+    this.borderRadius = config.borderRadius ?? style.borderRadius
     this.baseScale = config.scale ?? 1
 
-    // ── 背景 ──
-    const bgColor = toColor(config.bgColor) ?? style.bg
-    const bgAlpha = config.bgColor !== undefined ? 1 : style.bgAlpha
-    this.background = scene.add
-      .rectangle(0, 0, this.cardWidth, this.cardHeight, bgColor, bgAlpha)
-      .setOrigin(0.5)
+    // 颜色
+    this.currentBgColor = toColor(config.bgColor) ?? style.bg
+    this.currentBgAlpha = config.bgColor !== undefined ? 1 : style.bgAlpha
+    const textColor = toColor(config.textColor) ?? style.text
+    this.currentBorderColor = toColor(config.borderColor) ?? style.border
 
-    // ── 边框(透明填充 + stroke) ──
-    const borderColor = toColor(config.borderColor) ?? style.border
-    this.borderRect = scene.add
-      .rectangle(0, 0, this.cardWidth, this.cardHeight, borderColor, 0)
-      .setOrigin(0.5)
-      .setStrokeStyle(this.borderWidth, borderColor, 1)
+    const halfW = this.cardWidth / 2
+    const halfH = this.cardHeight / 2
+    const r = this.borderRadius
+
+    // ── 背景(圆角矩形 Graphics) ──
+    this.background = scene.add.graphics()
+    this.drawBackground()
+
+    // ── 边框(圆角矩形 Graphics) ──
+    this.borderGfx = scene.add.graphics()
+    this.drawBorder()
 
     // ── 主文字 ──
-    const textColor = toColor(config.textColor) ?? style.text
     const fontSize = Math.max(10, Math.min(this.cardWidth, this.cardHeight) * 0.22)
     this.scrollFontSize = fontSize
     const isGif = this.suffix === '.gif'
@@ -193,8 +207,29 @@ export class TextSprite extends Phaser.GameObjects.Container {
         .setOrigin(0.5)
     }
 
-    this.add([this.background, this.borderRect, this.mainText])
+    this.add([this.background, this.borderGfx, this.mainText])
     if (this.subtitleText) this.add(this.subtitleText)
+
+    // ── 文字裁剪 mask(仅 .gif 模式,Graphics 放在 scene 层级避免遮文字) ──
+    if (isGif) {
+      const innerPadding = this.borderWidth + 4
+      this.maskGraphics = scene.add.graphics()
+      this.maskGraphics.setPosition(x, y)
+      this.maskGraphics.fillStyle(0xffffff, 1)
+      this.maskGraphics.fillRoundedRect(
+        -halfW + innerPadding,
+        -halfH + innerPadding,
+        this.cardWidth - innerPadding * 2,
+        this.cardHeight - innerPadding * 2,
+        Math.max(0, r - innerPadding)
+      )
+      this.clipMask = this.maskGraphics.createGeometryMask()
+      // GeometryMask.preRenderWebGL 直接调用 renderWebGL,不走 visible 检查
+      // 设为不可见后:颜色缓冲区不渲染(不遮文字),stencil 缓冲区仍生效(正常裁剪)
+      this.maskGraphics.setVisible(false)
+      this.mainText.setMask(this.clipMask)
+      if (this.subtitleText) this.subtitleText.setMask(this.clipMask)
+    }
 
     // 滚动准备
     if (isGif) {
@@ -220,6 +255,38 @@ export class TextSprite extends Phaser.GameObjects.Container {
   }
 
   // ──────────────────────────────────────────────
+  // 内部:绘制方法
+  // ──────────────────────────────────────────────
+
+  /** 绘制/重绘背景圆角矩形(alpha=0 时跳过填充,避免 Phaser 默认白色) */
+  private drawBackground(): void {
+    this.background.clear()
+    if (this.currentBgAlpha > 0) {
+      this.background.fillStyle(this.currentBgColor, this.currentBgAlpha)
+      this.background.fillRoundedRect(
+        -this.cardWidth / 2,
+        -this.cardHeight / 2,
+        this.cardWidth,
+        this.cardHeight,
+        this.borderRadius
+      )
+    }
+  }
+
+  /** 绘制/重绘边框圆角矩形 */
+  private drawBorder(alpha = 1): void {
+    this.borderGfx.clear()
+    this.borderGfx.lineStyle(this.borderWidth, this.currentBorderColor, alpha)
+    this.borderGfx.strokeRoundedRect(
+      -this.cardWidth / 2,
+      -this.cardHeight / 2,
+      this.cardWidth,
+      this.cardHeight,
+      this.borderRadius
+    )
+  }
+
+  // ──────────────────────────────────────────────
   // 公开 API
   // ──────────────────────────────────────────────
 
@@ -227,13 +294,14 @@ export class TextSprite extends Phaser.GameObjects.Container {
   setHighlight(on: boolean): this {
     this.highlighted = on
     if (on) {
-      this.background.setFillStyle(COLORS.HIGHLIGHT_BG, COLORS.HIGHLIGHT_BG_ALPHA)
+      this.currentBgColor = COLORS.HIGHLIGHT_BG
+      this.currentBgAlpha = COLORS.HIGHLIGHT_BG_ALPHA
     } else {
       const style = TEXT_SPRITE_STYLES[this.textSpriteType]
-      const bgColor = toColor(this.config.bgColor) ?? style.bg
-      const bgAlpha = this.config.bgColor !== undefined ? 1 : style.bgAlpha
-      this.background.setFillStyle(bgColor, bgAlpha)
+      this.currentBgColor = toColor(this.config.bgColor) ?? style.bg
+      this.currentBgAlpha = this.config.bgColor !== undefined ? 1 : style.bgAlpha
     }
+    this.drawBackground()
     return this
   }
 
@@ -261,9 +329,7 @@ export class TextSprite extends Phaser.GameObjects.Container {
       this.setPosition(this.baseX, this.baseY)
       this.setScale(this.baseScale)
       // 恢复边框 alpha
-      const style = TEXT_SPRITE_STYLES[this.textSpriteType]
-      const borderColor = toColor(this.config.borderColor) ?? style.border
-      this.borderRect.setStrokeStyle(this.borderWidth, borderColor, 1)
+      this.drawBorder(1)
     }
     return this
   }
@@ -359,6 +425,11 @@ export class TextSprite extends Phaser.GameObjects.Container {
   private onSceneUpdate(_time: number, delta: number): void {
     this.animTime += delta
 
+    // 同步 mask 位置(遮罩在 scene 层级,需跟随容器移动)
+    if (this.maskGraphics) {
+      this.maskGraphics.setPosition(this.x, this.y)
+    }
+
     // .gif 滚动
     if (this.suffix === '.gif' && this.scrollLongText) {
       const speed = this.config.scrollSpeed ?? DEFAULT_SCROLL_SPEED
@@ -389,9 +460,7 @@ export class TextSprite extends Phaser.GameObjects.Container {
       case 'glow': {
         const t = this.animTime / 500
         const alpha = 0.5 + Math.sin(t) * 0.4
-        const style = TEXT_SPRITE_STYLES[this.textSpriteType]
-        const borderColor = toColor(this.config.borderColor) ?? style.border
-        this.borderRect.setStrokeStyle(this.borderWidth, borderColor, alpha)
+        this.drawBorder(alpha)
         break
       }
       case 'none':
@@ -405,6 +474,10 @@ export class TextSprite extends Phaser.GameObjects.Container {
     if (this.scene && this.scene.events) {
       this.scene.events.off('update', this.onSceneUpdate, this)
     }
+    // 清理 scene 层级的 mask Graphics
+    this.maskGraphics?.destroy()
+    this.maskGraphics = null
+    this.clipMask = null
     super.destroy(fromScene)
   }
 }

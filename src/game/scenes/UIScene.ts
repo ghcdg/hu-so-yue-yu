@@ -45,6 +45,8 @@ export class UIScene extends Phaser.Scene {
   private revealCard: TextSprite | null = null
   private revealSource!: Phaser.GameObjects.Text
   private revealHint!: Phaser.GameObjects.Text
+  /** reveal 模式下键盘监听器引用(用于 shutdown 清理) */
+  private revealKeyHandler: (() => void) | null = null
 
   constructor() {
     super(SCENE.UI)
@@ -314,7 +316,7 @@ export class UIScene extends Phaser.Scene {
       .setScrollFactor(0)
 
     // 任意键关闭(用 once 避免重复)
-    this.input.keyboard?.once('keydown', () => {
+    const handler = () => {
       this.revealCard?.destroy()
       this.revealOverlay?.destroy()
       this.revealSource?.destroy()
@@ -322,6 +324,24 @@ export class UIScene extends Phaser.Scene {
       mandarinText.destroy()
       this.revealCard = null
       this.revealOverlay = null
-    })
+      this.revealKeyHandler = null
+      // 移除监听器
+      this.input.keyboard?.off('keydown', handler)
+    }
+    this.revealKeyHandler = handler
+    this.input.keyboard?.once('keydown', handler)
+
+    // 场景关闭时清理
+    this.events.on('shutdown', this.onShutdown, this)
+  }
+
+  /** 场景关闭时清理(防止内存泄漏) */
+  private onShutdown(): void {
+    this.events.off('shutdown', this.onShutdown, this)
+    // 清理 reveal 键盘监听器
+    if (this.revealKeyHandler) {
+      this.input.keyboard?.off('keydown', this.revealKeyHandler)
+      this.revealKeyHandler = null
+    }
   }
 }

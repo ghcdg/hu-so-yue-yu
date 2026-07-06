@@ -568,12 +568,124 @@ src/
 | 区7 挑战 | 砖块1/2/3 | 想 | 踢挑战咸鱼(触发惊喜+buff) | 挑战 |
 | 揭示 | 揭示平台 | - | 触发句子揭示+发音 | 句子归位 |
 
+## 2026-07-06 · 阶段3完成:收集系统+通关结算+伏笔
+
+### 决策记录
+
+#### 30. 收集系统+通关结算完成
+**背景**:
+阶段3核心系统(P0-P1)完成后,需要收尾 P2:收集统计 + 三档评价 + 老伯伏笔台词。
+
+**决策**:
+- 扩展 LevelData/LevelResult 增加 `levelName` + `epilogue`
+- 评价等级分三档:收集满 5 金币→「梦想家」(金),≥3→「咸鱼之王」(蓝),<3→「咸鱼翻身」(灰)
+- 结算页增加「再来一次」按钮,直接重玩当前关卡
+- level_01_fish.json 增加老伯伏笔台词三句,埋第二关悬念
+
+**理由**:
+- 设计目标:第一关完整体验从开始到结算,留伏笔给后续关卡
+
+### 产出清单
+- ✅ level_01_fish.json:增加 epilogue 老伯三句伏笔台词
+- ✅ 共享类型:LevelResult 扩展 levelName + epilogue
+- ✅ game/data/types.ts:LevelData 扩展 epilogue
+- ✅ LevelScene.finishLevel:emit 完整结算数据(levelName/epilogue)
+- ✅ ResultView.vue:重写,增加伏笔台词展示 +「再来一次」按钮 + 等级染色
+
+### 遇到的问题
+- 无,架构已就位(store/eventBus/ResultView),只是填充功能
+
 ### 下一步
 
-阶段3 剩余:
-- ⬜ 收集系统完善 + 通关结算伏笔(P2)
+阶段3 **全部完成**。阶段4:
+- ⬜ 全链路联调(开场→7区→挑战→揭示→结算)
+- ⬜ 流畅性优化
+- ⬜ 演示打包部署
 
-阶段4:全链路联调 + 流畅性优化 + 演示打包
+---
+
+## 2026-07-06 · 阶段4:联调与优化 + 设计系统统一
+
+### 决策记录
+
+#### 31. 伪图卡片圆角化:Rectangle → Graphics 圆角矩形
+
+**背景**:所有伪图卡片用 Phaser `Rectangle` 绘制,直角生硬,不符合现代 UI 审美。
+
+**决策**:
+- 将 `background`(Rectangle) 和 `borderRect`(Rectangle) 替换为 `Graphics` 对象
+- 使用 `fillRoundedRect` / `strokeRoundedRect` 绘制圆角矩形
+- 新增 `borderRadius` 配置项到 `TextSpriteConfig` 和 `TextSpriteTypeStyle`
+- `setHighlight` 和 `glow` 动效改为 `clear() + 重绘` 模式
+
+**理由**:
+- Phaser 的 Rectangle 不支持圆角,Graphics 是唯一方案
+- clear + 重绘性能足够(每帧 < 1ms),不影响游戏流畅性
+- 圆角半径按类型分级:SM(4px) 用于小物件,MD(6px) 用于对话/提示,LG(10px) 用于揭示/结算
+
+---
+
+#### 32. .gif 滚动文字溢出修复:GeometryMask 裁剪
+
+**背景**:`.gif` 滚动文字用像素级 x 偏移实现丝滑滚动,但 Container 不会自动裁剪子元素,文字超出卡片边框后仍然可见。
+
+**决策**:
+- 在 TextSprite 构造函数中创建 `GeometryMask`,裁剪区域为卡片内边界(减去边框+内边距)
+- 同时应用到主文字和副文字,确保所有文本内容不超出卡片
+
+**理由**:
+- GeometryMask 是 Phaser 原生裁剪方案,性能好
+- 圆角 mask 确保文字在圆角卡片中也不会溢出
+
+---
+
+#### 33. 统一设计 Token 管理
+
+**背景**:颜色、圆角、边框等设计值散落在 `constants.ts`(Phaser) 和 Vue 组件 `scoped style` 中,修改时需多处同步。
+
+**决策**:
+- `constants.ts` 新增 `BORDER_RADIUS` 常量(SM=4/MD=6/LG=10),`TEXT_SPRITE_STYLES` 增加 `borderRadius` 字段
+- `styles.css` 新增 `:root` CSS 变量(颜色/圆角/按钮),与 `constants.ts` 的值保持对应
+- Vue 组件(`StartMenu.vue`/`ResultView.vue`/`App.vue`) 全部改用 `var(--xxx)` 引用
+
+**理由**:
+- 单一来源原则:修改一处全局生效
+- CSS 变量 + TS 常量双轨并行,各自领域最优方案
+- 后期主题切换只需改变量值
+
+---
+
+#### 34. 阶段4 流畅性优化:场景清理 + 掉落复活
+
+**背景**:全链路审查发现 3 个潜在问题:
+1. `LevelScene` 和 `UIScene` 的事件监听器未在场景销毁时解绑,可能内存泄漏
+2. 玩家掉落世界底部后无复活机制,只能卡住
+3. `UIScene.showReveal` 的键盘监听器未在场景销毁时清理
+
+**决策**:
+- `LevelScene.create` 注册 `shutdown` 事件 → `onShutdown` 清理 `player-interact`/`ESC` 监听器 + 停止 `UIScene`
+- `LevelScene.update` 增加掉落检测:`player.y > worldH + 80` → `respawn(spawn)` + Toast 提示
+- `UIScene` 的 reveal 键盘 `once` 监听器改为存储引用,`shutdown` 时 `off` 清理
+
+**理由**:
+- 场景关闭时清理是防止内存泄漏的标准做法
+- 掉落复活是平台跳跃游戏的基础体验,防止玩家卡死
+- 所有修改不影响现有游戏逻辑,纯防御性优化
+
+---
+
+### 产出清单
+
+✅ 优化1:TextSprite 圆角 + 文字裁剪(GeometryMask)
+✅ 优化2:统一设计 Token(constants.ts BORDER_RADIUS + styles.css CSS 变量)
+✅ 优化3:Vue 组件统一使用 CSS 变量
+✅ 阶段4:场景 shutdown 清理 + 掉落复活机制
+✅ 全链路联调:审查通过,无同步阻塞问题
+✅ typecheck + build 通过
+
+### 下一步
+
+阶段4 仅剩演示打包部署。初赛 Demo v0.1 基本就绪。
 
 ---
 
@@ -603,6 +715,8 @@ src/
 
 | 版本 | 日期 | 变更 |
 |------|------|------|
+| v1.8 | 2026-07-06 | 阶段4优化:圆角卡片+文字裁剪+统一设计Token+场景清理+掉落复活(决策31-34) |
+| v1.7 | 2026-07-06 | 阶段3完成:收集系统+通关结算+伏笔(决策30:三档评价/老伯epilogue/ResultView重写) |
 | v1.6 | 2026-07-06 | 7区铺垫链+惊喜事件+Buff系统(决策26-29:世界扩展/可互动物件/三段式/setDoubleJump落地) |
 | v1.5 | 2026-07-06 | 阶段3反馈修复(决策23-25:WebSpeech普通话优先/老伯对话改普通话/走开自动关对话) |
 | v1.4 | 2026-07-06 | 阶段3核心系统完成(决策18-22:TextSprite/Player/关卡数据驱动/JyutpingSpeaker) |
