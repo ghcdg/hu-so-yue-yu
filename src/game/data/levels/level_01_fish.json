@@ -224,5 +224,48 @@
       "记住,做人如果冇梦想,跟咸鱼有咩分别?",
       "这只是开始,下一关还有更多粤语金句等着你。"
     ]
+  },
+  "chaseScene": {
+    "id": "chase_oldman",
+    "type": "chase",
+    "worldSize": { "width": 800, "height": 600 },
+    "platforms": [
+      { "id": "cp_l1_left", "type": "static", "position": { "x": 150, "y": 500 }, "size": { "width": 160, "height": 20 } },
+      { "id": "cp_l1_mid", "type": "static", "position": { "x": 400, "y": 440 }, "size": { "width": 140, "height": 20 } },
+      { "id": "cp_l1_right", "type": "static", "position": { "x": 650, "y": 500 }, "size": { "width": 160, "height": 20 } },
+      { "id": "cp_l2_left", "type": "static", "position": { "x": 250, "y": 360 }, "size": { "width": 140, "height": 20 } },
+      { "id": "cp_l2_right", "type": "static", "position": { "x": 550, "y": 360 }, "size": { "width": 140, "height": 20 } },
+      { "id": "cp_l3_mid", "type": "static", "position": { "x": 400, "y": 260 }, "size": { "width": 140, "height": 20 } },
+      { "id": "cp_l4_left", "type": "static", "position": { "x": 200, "y": 160 }, "size": { "width": 120, "height": 20 } },
+      { "id": "cp_l4_right", "type": "static", "position": { "x": 600, "y": 160 }, "size": { "width": 120, "height": 20 } },
+      { "id": "cp_wall_left", "type": "static", "position": { "x": 300, "y": 410 }, "size": { "width": 30, "height": 80 } },
+      { "id": "cp_wall_right", "type": "static", "position": { "x": 500, "y": 310 }, "size": { "width": 30, "height": 80 } }
+    ],
+    "playerSpawn": { "x": 100, "y": 500 },
+    "fugitive": {
+      "npcId": "oldman",
+      "card": { "type": "character", "text": "老伯", "suffix": ".jpg", "size": { "width": 50, "height": 60 }, "borderWidth": 2 },
+      "spawn": { "x": 600, "y": 120 },
+      "fleeSpeed": 180,
+      "patrolPoints": [
+        { "x": 600, "y": 120 },
+        { "x": 400, "y": 220 }
+      ]
+    },
+    "caughtDialogue": [
+      { "speaker": "老伯", "text": "好啦好啦,年轻人腿脚真快!" },
+      { "speaker": "老伯", "text": "咸鱼就在前面,去看看吧!" }
+    ],
+    "stateTextMaps": {
+      "player": { "idle": "阿粤", "run": "追!", "jump": "跳", "fall": "落", "crouch": "蹲" },
+      "fugitive": { "idle": "老伯", "patrol": "巡", "flee": "逃!", "caught": "啊!", "flee_empty": "弹尽!" }
+    },
+    "bullet": {
+      "count": 5,
+      "shootRange": 100,
+      "cooldownMs": 500
+    },
+    "platformBounce": 0.6,
+    "onComplete": { "unlockPath": "zone_2_fish" }
   }
 }

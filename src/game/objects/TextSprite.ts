@@ -300,6 +300,41 @@ export class TextSprite extends Phaser.GameObjects.Container {
   }
 
   // ──────────────────────────────────────────────
+  // Protected:供子类扩展的辅助方法
+  // ──────────────────────────────────────────────
+
+  /** 获取卡片内部可用区域(扣除边框后),供子类在卡片内定位内容 */
+  protected getCardInnerBounds(): { x: number; y: number; width: number; height: number } {
+    const pad = this.borderWidth + 4
+    return {
+      x: -this.cardWidth / 2 + pad,
+      y: -this.cardHeight / 2 + pad,
+      width: this.cardWidth - pad * 2,
+      height: this.cardHeight - pad * 2
+    }
+  }
+
+  /** 获取卡片尺寸(供子类读取) */
+  protected getCardSize(): { width: number; height: number } {
+    return { width: this.cardWidth, height: this.cardHeight }
+  }
+
+  /** 获取当前背景色(供子类读取) */
+  protected getCurrentBgColor(): number {
+    return this.currentBgColor
+  }
+
+  /** 获取当前边框色(供子类读取) */
+  protected getCurrentBorderColor(): number {
+    return this.currentBorderColor
+  }
+
+  /** 获取主文字对象(供子类直接操作,如追加符号) */
+  protected getMainText(): Phaser.GameObjects.Text {
+    return this.mainText
+  }
+
+  // ──────────────────────────────────────────────
   // 公开 API
   // ──────────────────────────────────────────────
 

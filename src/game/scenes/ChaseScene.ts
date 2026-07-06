@@ -1,23 +1,29 @@
 /**
- * ChaseScene - 追捕小游戏子场景（v0.2 新增）
+ * ChaseScene - 追捕小游戏子场景（v0.2 新增, v0.3 升级）
  *
  * 设计依据:
  * - GAME_DESIGN.md 第十章(NPC AI 与追捕系统)
  * - LEVEL_DESIGN/LEVEL_01_FISH.md 区1(老伯追捕)
  * - TECH_ARCH.md 5.6(子场景系统)
  *
- * 独立小场景,有阶梯平台布局。
- * 玩家控制阿粤追,老伯(MovableNpc)自动逃跑。
- * 碰到老伯即抓住,触发对话后回传结果。
+ * v0.3 升级:
+ * - 双倍速度:进入追捕场景后 player 和 NPC 速度翻倍
+ * - NPC 子弹系统:5 发子弹,玩家靠近时发射,命中推飞玩家
+ * - 多阶梯平台 + 墙壁反弹:增加场景复杂度和追捕难度
+ * - NPC 主动跳跃:玩家在上方或遇到障碍时主动跳跃
  *
- * 配置数据:ChaseSceneConfig(由关卡 JSON 或代码提供)
+ * 独立小场景,有阶梯平台布局。
+ * 玩家控制阿粤追,老伯(MovableNpc)自动逃跑+射击。
+ * 碰到老伯即抓住,触发对话后回传结果。
  */
-import { SCENE, COLORS } from '@/shared/constants'
+import Phaser from 'phaser'
+import { SCENE, COLORS, PHYSICS } from '@/shared/constants'
 import { BaseSubScene } from '@/game/scenes/BaseSubScene'
 import type { SubSceneConfig } from '@/game/scenes/BaseSubScene'
 import { Player } from '@/game/objects/Player'
 import { MovableNpc } from '@/game/objects/MovableNpc'
 import type { MovableNpcData } from '@/game/objects/MovableNpc'
+import { Bullet } from '@/game/objects/Bullet'
 import { TextSprite } from '@/game/objects/TextSprite'
 import type { TextSpriteConfig } from '@/game/objects/TextSprite'
 import type { PlatformData, DialogueData } from '@/game/data/types'
@@ -27,7 +33,7 @@ export interface ChaseSceneConfig extends SubSceneConfig {
   type: 'chase'
   /** 小场景世界尺寸 */
   worldSize: { width: number; height: number }
-  /** 平台布局 */
+  /** 平台布局(阶梯/墙壁) */
   platforms: PlatformData[]
   /** 玩家起始位置 */
   playerSpawn: { x: number; y: number }
@@ -48,6 +54,17 @@ export interface ChaseSceneConfig extends SubSceneConfig {
     player: Record<string, string>
     fugitive: Record<string, string>
   }
+  /** 子弹配置(可选) */
+  bullet?: {
+    /** 子弹数量 */
+    count: number
+    /** 射击触发距离 */
+    shootRange: number
+    /** 射击冷却(ms) */
+    cooldownMs: number
+  }
+  /** 平台反弹系数(0=无反弹, 1=完全反弹, 默认 0.6) */
+  platformBounce?: number
 }
 
 export class ChaseScene extends BaseSubScene {
@@ -57,6 +74,7 @@ export class ChaseScene extends BaseSubScene {
   private caught = false
   private dialogueIndex = 0
   private dialogueBox: TextSprite | null = null
+  private bulletsGroup!: Phaser.GameObjects.Group
 
   constructor() {
     super(SCENE.CHASE)
@@ -88,22 +106,32 @@ export class ChaseScene extends BaseSubScene {
       '天台地面'
     )
 
-    // 平台(阶梯块)
+    // 平台(阶梯块,支持反弹)
     const platforms: TextSprite[] = []
+    const bounce = cfg.platformBounce ?? 0.6
     for (const p of cfg.platforms) {
-      platforms.push(this.createPlatform(p.position, p.size, '平台'))
+      const plat = this.createPlatform(p.position, p.size, '平台')
+      // 设置平台反弹(影响碰撞它的动态物体)
+      const platBody = plat.body as Phaser.Physics.Arcade.StaticBody
+      platBody.setBounce(bounce, 0)
+      platforms.push(plat)
     }
 
-    // Player
+    // Player(双倍速度)
     this.player = new Player(this, cfg.playerSpawn.x, cfg.playerSpawn.y)
     this.player.bindCardState(
       cfg.stateTextMaps?.player ?? {
-        idle: '阿粤', run: '追', jump: '跳', fall: '落', crouch: '蹲'
+        idle: '阿粤', run: '追!', jump: '跳', fall: '落', crouch: '蹲'
       }
     )
+    // 双倍最大速度
+    const playerBody = this.player.body as Phaser.Physics.Arcade.Body
+    playerBody.setMaxVelocityX(PHYSICS.PLAYER_SPEED * 2)
+    // 平台反弹(水平反弹,垂直无反弹:避免地面弹跳)
+    playerBody.setBounce(bounce, 0)
     this.physics.add.collider(this.player, [ground, ...platforms])
 
-    // Fugitive(MovableNpc)
+    // Fugitive(MovableNpc, 双倍速度 + 子弹)
     const fugData: MovableNpcData = {
       id: cfg.fugitive.npcId,
       card: {
@@ -111,16 +139,23 @@ export class ChaseScene extends BaseSubScene {
         stateBinding: {
           sourceId: cfg.fugitive.npcId,
           textMap: cfg.stateTextMaps?.fugitive ?? {
-            idle: '老伯', patrol: '巡', flee: '逃!', caught: '啊!'
+            idle: '老伯', patrol: '巡', flee: '逃!', caught: '啊!', flee_empty: '弹尽!'
           }
         }
       },
       position: cfg.fugitive.spawn,
       dialogues: cfg.caughtDialogue,
       patrolPoints: cfg.fugitive.patrolPoints,
-      fleeSpeed: cfg.fugitive.fleeSpeed,
+      fleeSpeed: cfg.fugitive.fleeSpeed * 2, // 双倍逃跑速度
       chaseTriggerRadius: 200,
-      initialState: 'patrol'
+      initialState: 'patrol',
+      bullet: cfg.bullet
+        ? {
+            count: cfg.bullet.count,
+            shootRange: cfg.bullet.shootRange,
+            cooldownMs: cfg.bullet.cooldownMs
+          }
+        : undefined
     }
     this.fugitive = new MovableNpc(this, fugData)
     this.fugitive.bindState(
@@ -130,7 +165,39 @@ export class ChaseScene extends BaseSubScene {
     this.fugitive.onCaught = () => {
       this.onCatch()
     }
+    // NPC 射击回调
+    this.fugitive.onShoot = (x, y, targetX, targetY) => {
+      this.createBullet(x, y, targetX, targetY)
+    }
+    // NPC 平台反弹
+    const fugBody = this.fugitive.body as Phaser.Physics.Arcade.Body
+    fugBody.setBounce(bounce, 0)
     this.physics.add.collider(this.fugitive, [ground, ...platforms])
+
+    // 子弹 Group
+    this.bulletsGroup = this.add.group()
+
+    // 子弹 vs 玩家:命中推飞
+    this.physics.add.overlap(
+      this.bulletsGroup,
+      this.player,
+      (_obj1, obj2) => {
+        const bullet = _obj1 as Bullet
+        if (!bullet.active) return
+        bullet.pushPlayer(obj2)
+        bullet.destroy()
+      }
+    )
+
+    // 子弹 vs 平台:命中销毁
+    this.physics.add.collider(
+      this.bulletsGroup,
+      [ground, ...platforms],
+      (obj1) => {
+        const bullet = obj1 as Bullet
+        if (bullet.active) bullet.destroy()
+      }
+    )
 
     // 碰撞检测:玩家碰到逃跑者
     this.physics.add.overlap(this.player, this.fugitive, () => {
@@ -151,10 +218,28 @@ export class ChaseScene extends BaseSubScene {
     // 更新 AI
     this.fugitive.updateAI(this.player.x, this.player.y)
 
+    // 清理已销毁的子弹
+    this.bulletsGroup.getChildren().forEach((b) => {
+      if (!b.active) {
+        this.bulletsGroup.remove(b, true, true)
+      }
+    })
+
     // 限时检测
     if (this.chaseConfig.timeLimitMs) {
       // 预留:超时则失败重试
     }
+  }
+
+  /** 创建子弹:从 NPC 射向玩家 */
+  private createBullet(
+    fromX: number,
+    fromY: number,
+    targetX: number,
+    targetY: number
+  ): void {
+    const bullet = new Bullet(this, fromX, fromY - 15, targetX, targetY)
+    this.bulletsGroup.add(bullet)
   }
 
   /** 抓到老伯 */

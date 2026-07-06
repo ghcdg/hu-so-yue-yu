@@ -31,6 +31,15 @@ export interface MovableNpcData extends NpcData {
   chaseTriggerRadius: number
   /** AI 初始状态 */
   initialState: 'idle' | 'patrol'
+  /** 子弹配置(可选,不配置则不发射子弹) */
+  bullet?: {
+    /** 子弹数量 */
+    count: number
+    /** 射击触发距离(玩家进入此范围时发射) */
+    shootRange: number
+    /** 射击冷却(ms) */
+    cooldownMs: number
+  }
 }
 
 export type MovableNpcState = 'idle' | 'patrol' | 'flee' | 'caught'
@@ -46,6 +55,14 @@ export class MovableNpc extends Npc implements StateTextSource {
   /** 被抓到时触发(场景监听) */
   onCaught: (() => void) | null = null
 
+  // ── 子弹系统 ──
+  private bulletsRemaining: number
+  private shootRange: number
+  private shootCooldownMs: number
+  private shootTimer = 0
+  /** 射击回调:场景创建子弹,参数(shooterX, shooterY, targetX, targetY) */
+  onShoot: ((x: number, y: number, targetX: number, targetY: number) => void) | null = null
+
   constructor(scene: Phaser.Scene, data: MovableNpcData) {
     super(scene, data)
 
@@ -53,6 +70,12 @@ export class MovableNpc extends Npc implements StateTextSource {
     this.fleeSpeed = data.fleeSpeed
     this.chaseTriggerRadius = data.chaseTriggerRadius
     this.aiState = data.initialState
+
+    // 子弹配置(可选)
+    const bulletCfg = data.bullet
+    this.bulletsRemaining = bulletCfg?.count ?? 0
+    this.shootRange = bulletCfg?.shootRange ?? 0
+    this.shootCooldownMs = bulletCfg?.cooldownMs ?? 500
 
     // 覆盖为动态物理体(Npc 基类创建的是 StaticBody,需先移除再重建)
     // StaticBody 没有 setImmovable/setVelocity 等方法,无法直接转换
@@ -75,6 +98,7 @@ export class MovableNpc extends Npc implements StateTextSource {
   // ──────────────────────────────────────────────
 
   getStateLabel(): string {
+    if (this.aiState === 'flee' && this.bulletsRemaining <= 0) return 'flee_empty'
     return this.aiState
   }
 
@@ -114,8 +138,19 @@ export class MovableNpc extends Npc implements StateTextSource {
       this.patrolBehavior()
     }
 
-    // 逃跑:每帧执行
+    // 逃跑:每帧执行(含射击决策)
     if (this.aiState === 'flee') {
+      // 射击:有子弹 + 冷却完毕 + 玩家在射程内
+      if (
+        this.bulletsRemaining > 0 &&
+        this.shootTimer <= 0 &&
+        this.shootRange > 0 &&
+        dist < this.shootRange
+      ) {
+        this.onShoot?.(this.x, this.y, playerX, playerY)
+        this.bulletsRemaining--
+        this.shootTimer = this.shootCooldownMs
+      }
       this.fleeBehavior(playerX, playerY)
     }
   }
@@ -133,7 +168,7 @@ export class MovableNpc extends Npc implements StateTextSource {
     }
   }
 
-  /** 逃跑:远离玩家方向 */
+  /** 逃跑:远离玩家方向,遇到障碍/玩家在上方时主动跳跃 */
   fleeBehavior(playerX: number, playerY: number): void {
     const dx = this.x - playerX
     const dy = this.y - playerY
@@ -142,9 +177,14 @@ export class MovableNpc extends Npc implements StateTextSource {
     this.body2.setVelocityX(
       (dx / dist) * this.fleeSpeed
     )
+    // 主动跳跃:玩家在上方(高于 NPC 50px 以上)且 NPC 着地 → 跳
+    const grounded = this.body2.blocked.down || this.body2.touching.down
+    if (grounded && dy > 50) {
+      this.body2.setVelocityY(-480)
+    }
     // 遇到障碍时尝试跳跃
     if (this.body2.blocked.left || this.body2.blocked.right) {
-      this.body2.setVelocityY(-400)
+      this.body2.setVelocityY(-420)
     }
   }
 
@@ -159,9 +199,13 @@ export class MovableNpc extends Npc implements StateTextSource {
   // 内部:update
   // ──────────────────────────────────────────────
 
-  private onAIUpdate = (_time: number, _delta: number): void => {
+  private onAIUpdate = (_time: number, delta: number): void => {
     // 被抓状态不做任何事
     if (this.aiState === 'caught') return
+    // 射击冷却递减
+    if (this.shootTimer > 0) {
+      this.shootTimer -= delta
+    }
   }
 
   destroy(fromScene?: boolean): void {

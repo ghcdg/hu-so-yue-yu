@@ -558,30 +558,36 @@ export class LevelScene extends Phaser.Scene {
 
   /** 启动追捕老伯子场景(老伯对话第3句话触发) */
   private startChaseScene(): void {
-    this.scene.launch(SCENE.CHASE, {
-      id: 'chase_oldman',
-      type: 'chase',
-      worldSize: { width: 800, height: 600 },
-      platforms: [
-        { id: 'p1', type: 'static', position: { x: 200, y: 480 }, size: { width: 120, height: 20 } },
-        { id: 'p2', type: 'static', position: { x: 400, y: 400 }, size: { width: 120, height: 20 } },
-        { id: 'p3', type: 'static', position: { x: 600, y: 320 }, size: { width: 120, height: 20 } },
-        { id: 'p4', type: 'static', position: { x: 400, y: 240 }, size: { width: 120, height: 20 } },
-        { id: 'p5', type: 'static', position: { x: 200, y: 160 }, size: { width: 120, height: 20 } }
-      ],
-      playerSpawn: { x: 100, y: 500 },
-      fugitive: {
-        npcId: 'oldman',
-        card: { type: 'character', text: '老伯', suffix: '.jpg', size: { width: 50, height: 60 }, borderWidth: 2 },
-        spawn: { x: 600, y: 200 },
-        fleeSpeed: 180,
-        patrolPoints: [{ x: 600, y: 200 }, { x: 400, y: 200 }]
-      },
-      caughtDialogue: [
-        { speaker: '老伯', text: '好啦好啦,年轻人腿脚真快!' },
-        { speaker: '老伯', text: '咸鱼就在前面,去看看吧!' }
-      ],
-      onComplete: { unlockPath: 'zone_2_fish' }
-    } as ChaseSceneConfig)
+    const chaseCfg = LEVEL.chaseScene
+    if (!chaseCfg) {
+      // fallback:无 JSON 配置时使用硬编码默认值
+      this.scene.launch(SCENE.CHASE, {
+        id: 'chase_oldman',
+        type: 'chase',
+        worldSize: { width: 800, height: 600 },
+        platforms: [
+          { id: 'p1', type: 'static', position: { x: 200, y: 480 }, size: { width: 120, height: 20 } },
+          { id: 'p2', type: 'static', position: { x: 400, y: 400 }, size: { width: 120, height: 20 } },
+          { id: 'p3', type: 'static', position: { x: 600, y: 320 }, size: { width: 120, height: 20 } },
+          { id: 'p4', type: 'static', position: { x: 400, y: 240 }, size: { width: 120, height: 20 } },
+          { id: 'p5', type: 'static', position: { x: 200, y: 160 }, size: { width: 120, height: 20 } }
+        ],
+        playerSpawn: { x: 100, y: 500 },
+        fugitive: {
+          npcId: 'oldman',
+          card: { type: 'character', text: '老伯', suffix: '.jpg', size: { width: 50, height: 60 }, borderWidth: 2 },
+          spawn: { x: 600, y: 200 },
+          fleeSpeed: 180,
+          patrolPoints: [{ x: 600, y: 200 }, { x: 400, y: 200 }]
+        },
+        caughtDialogue: [
+          { speaker: '老伯', text: '好啦好啦,年轻人腿脚真快!' },
+          { speaker: '老伯', text: '咸鱼就在前面,去看看吧!' }
+        ],
+        onComplete: { unlockPath: 'zone_2_fish' }
+      } as ChaseSceneConfig)
+      return
+    }
+    this.scene.launch(SCENE.CHASE, chaseCfg)
   }
 }
