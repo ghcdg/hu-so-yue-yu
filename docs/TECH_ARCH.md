@@ -72,18 +72,24 @@ hu-so-yue-yu/
 │   │   ├── scenes/             # 场景
 │   │   │   ├── BootScene.ts        # 启动
 │   │   │   ├── PreloadScene.ts     # 资源预加载
-│   │   │   ├── LevelScene.ts       # 关卡主场景
-│   │   │   └── UIScene.ts          # 游戏内 HUD/对话卡片叠加层
+│   │   │   ├── LevelScene.ts       # 关卡主场景（含子场景管理）
+│   │   │   ├── UIScene.ts          # 游戏内 HUD/对话卡片叠加层
+│   │   │   ├── BaseSubScene.ts     # 子场景基类（v0.2）
+│   │   │   ├── ChaseScene.ts       # 追捕小游戏子场景（v0.2）
+│   │   │   └── DialogueScene.ts    # 剧情对话子场景（v0.2）
 │   │   ├── objects/            # 游戏对象
-│   │   │   ├── Player.ts           # 主角阿粤
-│   │   │   ├── TextSprite.ts       # ★伪图卡片系统(核心)
+│   │   │   ├── Player.ts           # 主角阿粤（实现 StateTextSource）
+│   │   │   ├── TextSprite.ts       # ★伪图卡片系统（核心，含状态驱动）
+│   │   │   ├── MovableNpc.ts       # 可移动 NPC + AI 状态机（v0.2）
 │   │   │   ├── SurpriseTrigger.ts  # 惊喜触发器
 │   │   │   ├── Coin.ts             # 粤语金币
-│   │   │   └── Npc.ts              # NPC
+│   │   │   └── Npc.ts              # NPC（静态）
 │   │   ├── systems/            # 游戏系统
 │   │   │   ├── BuffSystem.ts       # Buff 管理
 │   │   │   ├── HintSystem.ts       # 探索指引4层
-│   │   │   └── ProgressSystem.ts   # 关卡进度
+│   │   │   ├── ProgressSystem.ts   # 关卡进度
+│   │   │   ├── SfxManager.ts       # 音效管理器（v0.2）
+│   │   │   └── CheckpointSystem.ts # 检查点系统（v0.2）
 │   │   ├── scripts/            # ★关卡定制脚本(定制层)
 │   │   │   ├── BaseLevelScript.ts  # 关卡脚本基类(钩子)
 │   │   │   └── LevelScript_01_fish.ts # 第一关定制逻辑
@@ -210,6 +216,75 @@ abstract class BaseLevelScript {
 
 **原则**:能用 JSON 描述的关卡数据走 JSON,独特逻辑直接写在关卡脚本里。初赛 Demo 第一关预计无需独特机制,可暂不实现脚本系统。详见 [DESIGN_PHILOSOPHY.md 第四节](./DESIGN_PHILOSOPHY.md)。
 
+### 5.6 子场景系统（v0.2 新增）
+
+借鉴马里奥管道式设计，主世界暂停时切入独立子场景展开剧情/小游戏。
+
+**场景流程（含子场景）**：
+```
+BootScene → PreloadScene → LevelScene + UIScene(并行)
+                              │
+                ┌─ 触发子场景 ─┤
+                ▼              │
+           BaseSubScene        │
+           ├─ ChaseScene       │ 子场景结束
+           └─ DialogueScene    │ eventBus 回传结果
+                │              │
+                └── scene.stop() + scene.resume() → LevelScene 继续
+```
+
+**BaseSubScene 基类**：
+```typescript
+abstract class BaseSubScene extends Phaser.Scene {
+  protected result: SubSceneResult | null = null
+
+  create(data: SubSceneConfig): void {
+    // 自动暂停主场景
+    this.scene.pause(SCENE.LEVEL)
+    this.scene.pause(SCENE.UI)
+    this.onSubSceneCreate(data)
+  }
+
+  // 子类实现
+  abstract onSubSceneCreate(data: SubSceneConfig): void
+
+  // 结束子场景，回传结果
+  protected complete(result: SubSceneResult): void {
+    this.result = result
+    eventBus.emit({ type: 'subscene-complete', result })
+    this.scene.stop()
+    this.scene.resume(SCENE.LEVEL)
+    this.scene.resume(SCENE.UI)
+  }
+}
+```
+
+**场景间结果协议**：
+```typescript
+interface SubSceneResult {
+  subSceneId: string
+  outcome: 'success' | 'failure' | 'cancelled'
+  rewards?: {
+    giveBuff?: string
+    unlockPath?: string
+    revealCoins?: string[]
+  }
+}
+```
+
+### 5.7 LevelScene 子场景管理
+
+LevelScene 新增职责：
+- 区域触发检测（Zone 进入判定）
+- 子场景启动（`scene.launch` + 镜头过渡）
+- 结果回传处理（监听 `subscene-complete` 事件）
+- 检查点管理（每个 Zone 入口自动保存）
+- 登台门槛（revealZone 金币检查）
+
+---
+
+## 六、伪图卡片系统(TextSprite)实现要点
+
 ---
 
 ## 六、伪图卡片系统(TextSprite)实现要点
@@ -236,6 +311,109 @@ abstract class BaseLevelScript {
 - `setAnimation(type)`:淡入/弹出/抖动/呼吸
 - `setEffect(type)`:粒子/光晕/拖尾
 - `loadTexture(src)`:后期替换真图
+
+### 6.4 状态驱动绑定（v0.2 新增）
+
+**StateTextSource 接口**：
+```typescript
+// shared/types.ts
+export interface StateTextSource {
+  getState(): string  // 返回当前状态标识
+}
+```
+
+**TextSprite 新增方法**：
+```typescript
+class TextSprite {
+  private stateSource: StateTextSource | null = null
+  private stateTextMap: Record<string, string> | null = null
+  private lastState: string = ''
+
+  /** 绑定状态源（可选，不绑定则维持静态文字） */
+  bindState(source: StateTextSource, textMap: Record<string, string>): this {
+    this.stateSource = source
+    this.stateTextMap = textMap
+    this.lastState = source.getState()
+    this.applyState(this.lastState)
+    return this
+  }
+
+  /** 每帧检查状态变化，变化时更新文字 */
+  private updateStateBinding(): void {
+    if (!this.stateSource || !this.stateTextMap) return
+    const state = this.stateSource.getState()
+    if (state !== this.lastState) {
+      this.lastState = state
+      this.applyState(state)
+    }
+  }
+
+  private applyState(state: string): void {
+    const text = this.stateTextMap![state]
+    if (text) {
+      if (this.suffix === '.gif') {
+        this.prepareScrollText(text)  // .gif 模式下重新准备滚动
+      } else {
+        this.setConfigText(text)      // 静态模式下直接 setText
+      }
+    }
+  }
+}
+```
+
+**性能设计**：状态变化时才更新文字，避免每帧 `setText` 重绘。状态缓存 `lastState` 与当前比较，无变化则跳过。
+
+**注册机制**：`LevelScene` 维护 `stateSources: Map<string, StateTextSource>` 注册表。TextSprite 创建时若 `config.stateBinding` 存在，从注册表查找源并绑定。
+
+### 6.5 MovableNpc（v0.2 新增）
+
+```typescript
+class MovableNpc extends Npc implements StateTextSource {
+  private aiState: 'idle' | 'patrol' | 'flee' | 'caught' = 'idle'
+  private patrolPoints: { x: number; y: number }[]
+  private fleeSpeed: number
+  private body2: Phaser.Physics.Arcade.Body  // 动态物理体
+
+  constructor(scene, data: MovableNpcData) {
+    super(scene, data)
+    // 覆盖为动态物理体（Npc 基类是静态的）
+    scene.physics.world.enable(this, Phaser.Physics.Arcade.DYNAMIC_BODY)
+    this.body2 = this.body as Phaser.Physics.Arcade.Body
+    this.body2.setCollideWorldBounds(true)
+    // ... 物理配置
+  }
+
+  getState(): string {
+    return this.aiState
+  }
+
+  updateAI(player: Player): void {
+    // AI 状态机：根据玩家距离切换 idle/patrol/flee
+    // flee: 计算远离玩家方向的速度向量
+    // caught: 判定 overlap 后触发
+  }
+}
+```
+
+### 6.6 SfxManager（v0.2 新增）
+
+```typescript
+class SfxManager {
+  private static instance: SfxManager
+  private ctx: AudioContext
+
+  static getInstance(): SfxManager { ... }
+
+  play(type: SfxType): void {
+    // 根据类型合成对应音效
+    // 与发音引擎共用 AudioContext
+  }
+
+  setMuted(muted: boolean): void { ... }
+}
+```
+
+单例模式，各场景按需调用 `SfxManager.getInstance().play('jump')`。
 
 ---
 
@@ -293,4 +471,5 @@ npm run typecheck   # TypeScript 类型检查
 
 | 版本 | 日期 | 变更 |
 |------|------|------|
+| v2.0 | 2026-07-07 | v0.2 内容深化:新增子场景(BaseSubScene/ChaseScene)/状态驱动绑定/MovableNpc/SfxManager/检查点/目录更新 |
 | v1.0 | 2026-07-06 | 初版:Vue3+Phaser 分层架构、目录结构、场景设计、TextSprite 要点 |

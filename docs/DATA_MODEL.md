@@ -175,6 +175,12 @@ interface TextSpriteConfig {
   interactable?: boolean;        // 是否可互动
   interactHint?: string;         // 靠近显示的互动提示(如"按 E 踢一脚")
   animation?: 'none' | 'shake' | 'glow' | 'bounce'; // 默认动效
+  /** 状态绑定（v0.2 新增，可选）：绑定后卡片文字随状态源变化 */
+  stateBinding?: {
+    sourceId: string;       // 状态源ID（如 'player' / 'npc_oldMan'）
+    textMap: Record<string, string>;  // 状态→文字映射
+    subtitleMap?: Record<string, string>; // 状态→副文字映射（可选）
+  };
 }
 ```
 
@@ -260,7 +266,177 @@ interface RewardData {
 
 ---
 
-## 六、第一关数据示例(片段)
+## 六、区域模块化 Schema（v0.2 新增）
+
+### 6.1 ZoneData（区域分组）
+
+```typescript
+interface ZoneData {
+  id: string;                    // 区域ID，如 'zone_1_oldman'
+  name: string;                  // 区域名，如 '打工区'
+  bounds: {                      // 区域边界
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
+  platforms?: PlatformData[];     // 区域内平台
+  coins?: CoinData[];             // 区域内金币
+  npcs?: NpcData[];               // 区域内 NPC
+  interactables?: InteractableData[]; // 区域内可互动物件
+  cutsceneId?: string;            // 进入时触发的子场景ID
+  enterHint?: string;             // 进入时显示的引导文字
+  checkpointId?: string;          // 检查点ID（掉落复活点）
+}
+```
+
+### 6.2 LevelData 更新
+
+```typescript
+interface LevelData {
+  // ...现有字段（向后兼容）...
+  zones?: ZoneData[];             // 区域分组（v0.2，优先使用）
+  cutscenes?: CutsceneTrigger[];  // 子场景触发配置（v0.2）
+  revealZone?: {                  // 揭示区配置（v0.2 升级）
+    position: { x: number; y: number };
+    requireCoins: number;         // 登台所需金币数
+    lockedHint?: string;          // 金币不足时提示
+  };
+}
+```
+
+---
+
+## 七、子场景数据 Schema（v0.2 新增）
+
+### 7.1 CutsceneTrigger（子场景触发配置）
+
+```typescript
+interface CutsceneTrigger {
+  id: string;                    // 如 'cutscene_oldman_chase'
+  /** 触发条件 */
+  trigger:
+    | { type: 'enter_zone'; zoneId: string }
+    | { type: 'npc_dialogue'; npcId: string; dialogueIndex: number }
+    | { type: 'interact'; interactableId: string };
+  /** 子场景配置 */
+  subScene: {
+    type: 'chase' | 'dialogue' | 'fight';
+    config: ChaseSceneConfig | DialogueSceneConfig;
+  };
+  /** 子场景结束后的回调 */
+  onComplete?: {
+    giveBuff?: string;            // 给 Buff
+    unlockPath?: string;          // 解锁路径
+    revealCoins?: string[];       // 揭示金币
+    advanceStory?: boolean;       // 推进主线
+  };
+}
+```
+
+### 7.2 ChaseSceneConfig（追捕子场景配置）
+
+```typescript
+interface ChaseSceneConfig {
+  /** 小场景世界尺寸 */
+  worldSize: { width: number; height: number };
+  /** 平台布局（阶梯块） */
+  platforms: PlatformData[];
+  /** 玩家起始位置 */
+  playerSpawn: { x: number; y: number };
+  /** 逃跑 NPC 配置 */
+  fugitive: {
+    npcId: string;
+    card: TextSpriteConfig;
+    spawn: { x: number; y: number };
+    fleeSpeed: number;
+    patrolPoints: { x: number; y: number }[];
+  };
+  /** 抓到后的对话 */
+  caughtDialogue: DialogueData[];
+  /** 限时（可选，超时失败重试） */
+  timeLimitMs?: number;
+  /** 状态文字映射（可选，用于卡片实时显示动作） */
+  stateTextMaps?: {
+    player: Record<string, string>;  // 如 { run: '追', jump: '跳' }
+    fugitive: Record<string, string>; // 如 { flee: '逃', caught: '啊！' }
+  };
+}
+```
+
+### 7.3 DialogueSceneConfig（剧情对话子场景配置）
+
+```typescript
+interface DialogueSceneConfig {
+  /** 场景背景（纯色或伪图卡片） */
+  background: { color?: number; card?: TextSpriteConfig };
+  /** 对话角色（左/右站位） */
+  characters: {
+    left?: TextSpriteConfig;      // 左侧角色立绘
+    right?: TextSpriteConfig;     // 右侧角色立绘
+  };
+  /** 对话列表 */
+  dialogues: DialogueData[];
+  /** 是否显示选项（可选） */
+  choices?: {
+    question: string;
+    options: { text: string; response: string }[];
+  };
+}
+```
+
+### 7.4 SubSceneResult（子场景回传结果）
+
+```typescript
+interface SubSceneResult {
+  subSceneId: string;
+  outcome: 'success' | 'failure' | 'cancelled';
+  rewards?: {
+    giveBuff?: string;
+    unlockPath?: string;
+    revealCoins?: string[];
+    advanceStory?: boolean;
+  };
+}
+```
+
+---
+
+## 八、MovableNpc 数据 Schema（v0.2 新增）
+
+```typescript
+interface MovableNpcData extends NpcData {
+  /** 巡逻路径点 */
+  patrolPoints: { x: number; y: number }[];
+  /** 逃跑速度 */
+  fleeSpeed: number;
+  /** 触发追逐的玩家距离 */
+  chaseTriggerRadius: number;
+  /** AI 初始状态 */
+  initialState: 'idle' | 'patrol';
+}
+```
+
+---
+
+## 九、检查点数据 Schema（v0.2 新增）
+
+```typescript
+interface CheckpointData {
+  id: string;                    // 检查点ID
+  zoneId: string;                // 所属区域
+  position: { x: number; y: number }; // 复活位置
+  label?: string;                // 提示文字，如 '打工区'
+}
+```
+
+---
+
+## 十、音效数据 Schema（v0.2 新增）
+
+---
+
+## 十一、第一关数据示例(片段)
 
 ```json
 {
@@ -314,8 +490,9 @@ interface RewardData {
 
 ---
 
-## 七、版本历史
+## 十二、版本历史
 
 | 版本 | 日期 | 变更 |
 |------|------|------|
+| v2.0 | 2026-07-07 | v0.2 内容深化:新增 ZoneData/CutsceneTrigger/ChaseSceneConfig/DialogueSceneConfig/MovableNpcData/CheckpointData/StateBinding |
 | v1.0 | 2026-07-06 | 初版:关卡/惊喜/伪图卡片/NPC/对话/Buff/平台/金币 Schema |

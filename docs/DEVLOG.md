@@ -689,6 +689,136 @@ src/
 
 ---
 
+## 2026-07-07 · 阶段5:内容深化与升级 — 文档设计
+
+### 决策记录
+
+#### 35. 进入新设计阶段：内容深化与升级
+
+**背景**:v0.1 基本跑通（7区铺垫链+惊喜事件+Buff+收集结算），但关卡内容单薄——NPC 对话一次性说完、没有独立场景展开剧情、没有小游戏玩法。用户提出4个方向（卡片状态驱动/子场景/NPC追捕/区域模块化），要求全部实现。
+
+**决策**:进入 v0.2 内容深化阶段，4个方向+额外建议（音效/检查点/镜头特效/对话选项等）全部纳入设计。先更新全部文档再写代码。
+
+**理由**:
+- 4个方向是一个有机整体，需要统一设计避免互相冲突
+- 卡片状态驱动是基础设施，子场景是骨架，追捕是第一个独立玩法
+- 文档先行原则（DESIGN_PHILOSOPHY 第五节），确保设计思路清晰再动手
+
+---
+
+#### 36. 卡片状态驱动设计：可选绑定，不破坏静态文字
+
+**背景**:用户提出"卡片根据人物状态实时显示文字"，如追捕时显示"追/逃"、打架时显示"出左腿/踢右拳"。
+
+**决策**:
+- TextSprite 新增 `bindState(source, textMap)` 方法（可选，不调用则维持静态文字）
+- 任何对象实现 `StateTextSource` 接口即可驱动卡片
+- 状态变化时才 `setText`，缓存 `lastState` 避免每帧重绘
+- Player 和 MovableNpc 都实现 `StateTextSource`
+- 状态映射表写在关卡 JSON 的 `stateBinding` 字段中
+
+**理由**:
+- 向后兼容：现有静态卡片零影响
+- 数据驱动：映射表不在代码里，可灵活配置
+- 可扩展：未来可扩展为"状态→样式"映射
+
+---
+
+#### 37. 子场景系统设计：BaseSubScene + pause/resume 协议
+
+**背景**:借鉴马里奥管道式设计，主世界暂停时切入独立子场景。
+
+**决策**:
+- `BaseSubScene` 基类：构造时自动 `scene.pause(LEVEL)`, `complete()` 时 `scene.stop()` + `scene.resume(LEVEL)`
+- 子场景类型：`chase`（追捕）、`dialogue`（剧情对话）、`fight`（打架，预留）
+- 结果回传：通过 `eventBus` 的 `subscene-complete` 事件，携带 `SubSceneResult`
+- LevelScene 监听回传结果，应用 `onComplete` 回调（giveBuff/unlockPath/revealCoins）
+
+**理由**:
+- Phaser 原生的 pause/resume/launch/stop 完美支持，无需自行实现状态机
+- 结果回传走 eventBus 而非 Phaser events，因为子场景停止后 Phaser events 也会销毁
+
+---
+
+#### 38. MovableNpc 设计：继承 Npc，覆盖为动态物理体
+
+**背景**:当前 Npc 是静态物理体（`physics.add.existing(this, true)`），无法移动。
+
+**决策**:
+- `MovableNpc` 继承 `Npc`，在构造函数中覆盖为动态物理体（`DYNAMIC_BODY`）
+- AI 状态机：idle → patrol → flee → caught
+- 实现 `StateTextSource` 接口，供卡片状态驱动
+- 与 Player 复用同一套 Arcade Physics（重力/平台碰撞）
+- 配置数据：`MovableNpcData` 含 patrolPoints/fleeSpeed/chaseTriggerRadius
+
+**理由**:
+- 继承而非修改基类，符合"务实扩展"原则
+- 现有静态 NPC 不受影响
+- 动态物理体复用 Player 已有的碰撞检测逻辑
+
+---
+
+#### 39. 区域模块化设计：zones[] + 向后兼容
+
+**背景**:当前关卡 JSON 是扁平列表（platforms/coins/npcs 平铺），无法按区域触发子场景/检查点。
+
+**决策**:
+- 新增 `ZoneData` 接口（id/name/bounds/platforms/coins/npcs/cutsceneId/checkpointId）
+- `LevelData` 新增 `zones?: ZoneData[]` 字段
+- 现有 `platforms/coins/npcs` 字段保留作为 fallback
+- 有 zones 时优先使用 zones
+
+**理由**:
+- 向后兼容：旧 JSON 不加 zones 也能跑
+- 区域分组使得子场景触发、检查点管理、引导文字等成为可能
+
+---
+
+#### 40. 登台门槛设计：集齐汉字才能揭示
+
+**背景**:当前收集金币只是增加评价等级，没有实质意义。用户提出"集齐汉字才能登台"。
+
+**决策**:
+- `revealZone` 新增 `requireCoins` 字段
+- 玩家踏上揭示平台时，金币不足 → 提示"还需收集 X 个汉字"，不触发揭示
+- 金币足够 → 正常揭示
+
+**设计意图**:每个金币是一个汉字（累/咸/功/梦/想），玩家在跑跳中不知不觉收集整句粤语的所有关键词，揭示时"拼出"完整句子。
+
+---
+
+#### 41. 额外建议：音效/检查点/镜头/对话选项
+
+**背景**:在用户4个方向之外，追加了8个额外建议。
+
+**决策**:
+- 阶段5 优先实现 P0（4个方向 + 登台门槛），P1（音效/检查点/对话选项），P2（镜头/粒子/视差）
+- 音效用 Web Audio API 合成，SfxManager 单例，与发音引擎共用 AudioContext
+- 检查点依附区域模块化，每个 Zone 入口自动保存
+- 镜头特效（震动/淡入淡出）在子场景切换时使用
+
+**理由**:
+- 音效是"静音→有音效"的质变，体验提升巨大但实现成本低
+- 检查点与区域模块化是自然配套，不需额外基础设施
+- 其他 P2 项目等 P0 完成后再评估
+
+---
+
+### 产出清单（文档设计）
+
+✅ GAME_DESIGN.md v3.0: 新增子场景系统/NPC AI与追捕/区域模块化/状态驱动卡片/音效系统/检查点/镜头特效
+✅ TECH_ARCH.md v2.0: 新增子场景架构/状态绑定/MovableNpc/SfxManager/目录更新
+✅ DATA_MODEL.md v2.0: 新增 ZoneData/CutsceneTrigger/ChaseSceneConfig/DialogueSceneConfig/MovableNpcData/CheckpointData/StateBinding
+✅ LEVEL_DESIGN/LEVEL_01_FISH.md v2.0: 重写融入 ChaseScene/DialogueScene/状态驱动/登台门槛
+✅ TASKS.md: 新增阶段5内容深化任务看板
+✅ DEVLOG.md: 记录决策35-41
+
+### 下一步
+
+等待产品确认文档设计，确认后按照阶段5任务看板开始实现（P0优先: 卡片状态驱动 → MovableNpc → BaseSubScene → ChaseScene）。
+
+---
+
 ## 模板:迭代记录格式
 
 ```
@@ -715,6 +845,7 @@ src/
 
 | 版本 | 日期 | 变更 |
 |------|------|------|
+| v1.9 | 2026-07-07 | 阶段5文档设计:内容深化方案(决策35-41:状态驱动/子场景/MovableNpc/区域模块化/登台门槛/音效等) |
 | v1.8 | 2026-07-06 | 阶段4优化:圆角卡片+文字裁剪+统一设计Token+场景清理+掉落复活(决策31-34) |
 | v1.7 | 2026-07-06 | 阶段3完成:收集系统+通关结算+伏笔(决策30:三档评价/老伯epilogue/ResultView重写) |
 | v1.6 | 2026-07-06 | 7区铺垫链+惊喜事件+Buff系统(决策26-29:世界扩展/可互动物件/三段式/setDoubleJump落地) |
