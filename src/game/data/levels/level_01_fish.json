@@ -150,8 +150,7 @@
         "highlight": true
       },
       "position": { "x": 1000, "y": 420 },
-      "action": "trigger_surprise",
-      "surpriseId": "surprise_star_ye"
+      "action": "kick_football"
     },
     {
       "id": "int_challenge_fish",

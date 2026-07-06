@@ -11,7 +11,9 @@ export const SCENE = {
   /** 追捕子场景(v0.2) */
   CHASE: 'ChaseScene',
   /** 剧情对话子场景(v0.2) */
-  DIALOGUE: 'DialogueScene'
+  DIALOGUE: 'DialogueScene',
+  /** 踢足球子场景(v0.2) */
+  FOOTBALL: 'FootballScene'
 } as const
 
 /** 游戏画布尺寸(16:9) */

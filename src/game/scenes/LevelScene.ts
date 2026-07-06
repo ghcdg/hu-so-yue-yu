@@ -18,6 +18,7 @@ import { Coin } from '@/game/objects/Coin'
 import { Npc } from '@/game/objects/Npc'
 import { InteractableObject } from '@/game/objects/InteractableObject'
 import type { ChaseSceneConfig } from '@/game/scenes/ChaseScene'
+import type { FootballSceneConfig } from '@/game/scenes/FootballScene'
 import { SfxManager } from '@/game/systems/SfxManager'
 import levelData from '@/game/data/levels/level_01_fish.json'
 import type { LevelData, SurpriseData, BuffData, InteractAction, DialogueData } from '@/game/data/types'
@@ -230,7 +231,23 @@ export class LevelScene extends Phaser.Scene {
     // 子场景结果监听
     this.events.on('subscene-result', (result: any) => {
       console.log('[LevelScene] 子场景回传:', result)
-      this.events.emit('show-toast', result.outcome === 'success' ? '追捕成功!' : '追捕取消')
+      if (result.outcome === 'success') {
+        // 足球子场景:收集文字奖励
+        if (result.rewards?.word && result.rewards?.jyutping) {
+          this.coins++
+          this.emitHudUpdate()
+          eventBus.emit({
+            type: 'coin-collected',
+            word: result.rewards.word,
+            count: this.coins
+          })
+          this.events.emit('show-toast', `获得文字「${result.rewards.word}」! 已收集 ${this.coins}/${LEVEL.totalCoins} 字`)
+        } else {
+          this.events.emit('show-toast', '追捕成功!')
+        }
+      } else {
+        this.events.emit('show-toast', '追捕取消')
+      }
     })
 
     // 场景关闭时清理
@@ -313,6 +330,9 @@ export class LevelScene extends Phaser.Scene {
       case 'hidden_shoe':
         this.hiddenShoe(obj)
         break
+      case 'kick_football':
+        this.kickFootball(obj)
+        break
     }
   }
 
@@ -331,11 +351,28 @@ export class LevelScene extends Phaser.Scene {
     this.events.emit('show-toast', '咸鱼弹开了!隐藏路径(待实现)...')
   }
 
-  /** 区4:踢足球 → 弹飞 + 闪现"黄金右脚"提示 */
+  /** 区4:踢足球 → 弹开动效 + 进入足球子场景 */
   private kickBall(obj: InteractableObject): void {
     obj.playKickEffect()
     obj.playFlashHint('少林功夫+足球=?')
     this.events.emit('show-toast', '足球弹飞了!滚向远方...')
+  }
+
+  /** 区4:踢足球 → 进入足球子场景收集文字 */
+  private kickFootball(obj: InteractableObject): void {
+    obj.playKickEffect()
+    this.time.delayedCall(400, () => this.startFootballScene())
+  }
+
+  /** 启动足球子场景 */
+  private startFootballScene(): void {
+    this.scene.launch(SCENE.FOOTBALL, {
+      id: 'football_street',
+      type: 'football',
+      worldSize: { width: 800, height: 600 },
+      playerSpawn: { x: 150, y: 500 },
+      totalAttempts: 3
+    } as FootballSceneConfig)
   }
 
   /** 区6隐藏:踢破旧足球鞋 → 钢铁腿隐藏惊喜 */

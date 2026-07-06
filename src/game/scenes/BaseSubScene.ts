@@ -27,13 +27,19 @@ export interface SubSceneResult {
     unlockPath?: string
     revealCoins?: string[]
     advanceStory?: boolean
+    /** 足球子场景:收集的文字 */
+    word?: string
+    /** 足球子场景:文字粤拼 */
+    jyutping?: string
+    /** 足球子场景:命中区域 */
+    zone?: string
   }
 }
 
 /** 子场景配置(基类,各子类型扩展) */
 export interface SubSceneConfig {
   id: string
-  type: 'chase' | 'dialogue' | 'fight'
+  type: 'chase' | 'dialogue' | 'fight' | 'football'
   /** 子场景结束后的回调 */
   onComplete?: SubSceneResult['rewards']
 }

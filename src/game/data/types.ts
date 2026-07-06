@@ -56,6 +56,7 @@ export interface NpcData {
 export type InteractAction =
   | 'kick_fish' // 区2:踢咸鱼 → 弹开 + 揭示隐藏金币
   | 'kick_ball' // 区4:踢足球 → 弹飞 + 闪现黄金右脚
+  | 'kick_football' // 区4:踢足球 → 进入足球子场景收集文字
   | 'trigger_surprise' // 区7:触发必触发惊喜(咸鱼翻身 buff)
   | 'hidden_shoe' // 区6隐藏:踢破旧足球鞋 → 钢铁腿隐藏惊喜
 
