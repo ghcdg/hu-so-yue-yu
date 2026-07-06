@@ -29,13 +29,13 @@
 
 | 状态 | 任务 | 优先级 | 依赖 |
 |------|------|--------|------|
-| ⬜ | 初始化 Vue 3 + Vite + TS + Phaser + Pinia 项目 | P0 | 阶段1 |
-| ⬜ | 搭建目录结构(ui/game/speakers/shared) | P0 | 上 |
-| ⬜ | 实现 Vue UI 外壳 + Phaser 场景挂载跑通 | P0 | 上 |
-| ⬜ | 实现事件总线 + Pinia store 状态共享 | P0 | 上 |
-| ⬜ | 跑通 BootScene → PreloadScene → LevelScene + UIScene 流程 | P0 | 上 |
+| ✅ | 初始化 Vue 3 + Vite + TS + Phaser + Pinia 项目 | P0 | 阶段1 |
+| ✅ | 搭建目录结构(ui/game/speakers/shared) | P0 | 上 |
+| ✅ | 实现 Vue UI 外壳 + Phaser 场景挂载跑通 | P0 | 上 |
+| ✅ | 实现事件总线 + Pinia store 状态共享 | P0 | 上 |
+| ✅ | 跑通 BootScene → PreloadScene → LevelScene + UIScene 流程 | P0 | 上 |
 
-**阶段2出口**:空场景能跑,Vue 和 Phaser 通信打通。
+**阶段2出口**:空场景能跑,Vue 和 Phaser 通信打通。✅ 已达成(http://127.0.0.1:5173/)
 
 ---
 
@@ -104,7 +104,7 @@
 
 | 版本 | 对应阶段 | 状态 |
 |------|---------|------|
-| v0.1 初赛 Demo | 阶段1-4 | 🔄 阶段1完成 |
+| v0.1 初赛 Demo | 阶段1-4 | 🔄 阶段2完成,进入阶段3 |
 | v0.2 初赛优化 | (待规划) | ⬜ |
 | v1.0 复赛版本 | (待规划) | ⬜ |
 
@@ -114,4 +114,5 @@
 
 | 日期 | 变更 |
 |------|------|
+| 2026-07-06 | 阶段2完成:Vue3+Phaser+Pinia 项目骨架跑通,通信链路验证 |
 | 2026-07-06 | 初始化任务看板,完成阶段1全部9份文档 |

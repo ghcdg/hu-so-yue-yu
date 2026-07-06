@@ -193,6 +193,107 @@
 
 ---
 
+## 2026-07-06 · 阶段2:技术骨架搭建
+
+### 决策记录
+
+#### 14. 项目骨架:手动创建配置文件而非脚手架
+
+**背景**:`npm create vite` 脚手架会生成大量样板代码(默认组件/示例/路由),需要清理;且本机 PowerShell 执行策略禁用 `.ps1`,交互式脚手架可能踩坑。
+
+**决策**:手动创建 `package.json` / `vite.config.ts` / `tsconfig.json` / `index.html` / `env.d.ts`,只装必需依赖(vue / phaser / pinia + vite / vue-tsc / typescript)。
+
+**理由**:
+- 完全可控,无样板代码
+- 配置最小化,后续按需加(如 vue-router 暂不需要,用条件渲染)
+- `npm install` 用 `npm.cmd` 绕过 PowerShell 脚本策略
+
+---
+
+#### 15. Vue-Phaser 集成:GameContainer 组件 + createPhaserGame 工厂
+
+**背景**:Vue 与 Phaser 是两种渲染范式,挂载方式需明确。
+
+**决策**:
+- `game/PhaserGame.ts` 导出 `createPhaserGame(parent: HTMLElement)` 工厂函数,纯函数无副作用
+- `ui/components/GameContainer.vue` 接收 `levelId` prop,onMounted 时挂载 Phaser,onBeforeUnmount 时 `game.destroy(true)`
+- 切关时用 `:key="levelId"` 强制重建,简单可靠
+- Vue 容器只管生命周期,不碰游戏内部
+
+**理由**:职责清晰,Vue 管 DOM 容器与视图路由,Phaser 管游戏内容,两者通过 eventBus/Pinia 通信。
+
+---
+
+#### 16. 事件总线:自实现轻量版,不依赖 Phaser.EventEmitter
+
+**背景**:UI ↔ Game 通信需要事件总线,可选 Phaser.EventEmitter 或自实现。
+
+**决策**:在 `shared/eventBus.ts` 自实现 `EventBus` 类(Map<type, Set<handler>>),`on()` 返回取消订阅函数,`emit()` 复制迭代器防并发修改。
+
+**理由**:
+- `shared/` 层不依赖 Phaser,UI 层可独立使用
+- 类型安全:`GameEvent` 联合类型约束事件 payload
+- 简单透明,无外部依赖
+
+---
+
+#### 17. 场景时序:PreloadScene → start LEVEL → LevelScene 末尾 launch UI
+
+**背景**:UIScene 需监听 LevelScene.events('hud-update'),若并行 launch 时序不保证,UIScene.create 时 LevelScene 可能未就绪。
+
+**决策**:PreloadScene.create 中 `this.scene.start(SCENE.LEVEL)`,LevelScene.create 末尾 `this.scene.launch(SCENE.UI)`。
+
+**理由**:保证 UIScene.create 时 LevelScene 已存在,可安全 `this.scene.get(SCENE.LEVEL).events.on(...)`。时序清晰,无需延迟或重试。
+
+---
+
+### 产出清单(阶段2)
+
+✅ 项目骨架:`package.json` / `vite.config.ts` / `tsconfig.json` / `index.html` / `env.d.ts` / `.gitignore`
+✅ 依赖安装:vue@3.4 / phaser@3.87 / pinia@2.2 + vite@5.4 / vue-tsc@2.1 / typescript@5.5(52 包)
+✅ 目录结构:
+```
+src/
+├── main.ts / App.vue / styles.css
+├── ui/{views/{StartMenu,ResultView}, components/GameContainer, stores/gameStore}
+├── game/{PhaserGame, scenes/{Boot,Preload,Level,UI}Scene}
+├── speakers/{BaseSpeaker, SpeakerManager}
+└── shared/{eventBus, types, constants}
+```
+✅ Vue UI 外壳:条件渲染 menu/game/result 三视图,Pinia store 驱动
+✅ Phaser 场景挂载:BootScene → PreloadScene → LevelScene + UIScene 跑通
+✅ 事件总线:自实现,8 种 GameEvent 类型,返回取消订阅函数
+✅ Pinia store:gameStore(view / currentLevelId / lastResult + startGame/finishLevel/backToMenu)
+✅ 通信链路验证:
+  - UI → Game:StartMenu 点击 → store.startGame → GameContainer 挂载 Phaser
+  - Game → UI:LevelScene 点击"模拟通关" → eventBus.emit('level-complete') → App.vue 监听 → store.finishLevel → ResultView 显示
+  - 场景内部:LevelScene 点击金币 → scene.events.emit('hud-update') → UIScene 更新 HUD
+✅ typecheck 通过 / dev server 启动成功(http://127.0.0.1:5173)/ 浏览器无错误
+
+### 验证用占位交互
+
+阶段2 的 LevelScene 不实现玩法,只放三个占位按钮验证通信链路:
+- [点击收集粤语金币] → coin-collected 事件 + HUD 更新
+- [触发隐藏发现] → hidden-found 事件 + HUD 更新
+- [模拟通关 → 结算] / ESC → level-complete 事件 → 跳结算页
+
+### 遇到的问题
+
+- **PowerShell 执行策略禁用 `npm.ps1`**:改用 `npm.cmd` 调用,绕过脚本策略限制
+- **TS 5.5 不支持 `noUncheckedSideEffectImports`**:该选项是 TS 5.6+ 特性,从 tsconfig.json 移除
+- **project references 要求 `composite: true`**:为简化构建链路,去掉 references,`build` 改用 `vue-tsc --noEmit` 单步校验
+- **`onMounted` 未使用告警**:App.vue 初版引入但未用,清理 import
+
+### 下一步
+
+进入阶段3:核心系统(按 P0 优先级):
+1. ★伪图卡片系统(TextSprite)— 全局视觉组件,最优先
+2. 物理引擎 + 角色控制(Player)
+3. 关卡数据驱动(JSON → 场景渲染)
+4. 发音引擎(JyutpingSpeaker 接入)
+
+---
+
 ## 模板:迭代记录格式
 
 ```
@@ -219,6 +320,7 @@
 
 | 版本 | 日期 | 变更 |
 |------|------|------|
+| v1.3 | 2026-07-06 | 阶段2完成:技术骨架搭建(决策14-17,Vue3+Phaser+Pinia 跑通) |
 | v1.2 | 2026-07-06 | 补充决策13(可扩展性再修正为务实扩展) |
 | v1.1 | 2026-07-06 | 补充决策11(可扩展性分层修正)、12(LEVEL_DESIGN 目录拆分) |
 | v1.0 | 2026-07-06 | 初始化,记录阶段1全部决策 |
