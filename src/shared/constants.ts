@@ -45,14 +45,40 @@ export const COLORS = {
   // 边框
   BORDER_DEFAULT: 0x4a4a6a,
   BORDER_HIGHLIGHT: 0xffd166, // 高亮黄
-  // 类型色
-  TYPE_CHARACTER: 0xef476f, // 角色-红
-  TYPE_OBJECT: 0x06d6a0, // 物件-绿
-  TYPE_SCENERY: 0x118ab2, // 路标-蓝
-  TYPE_DIALOGUE: 0xffd166, // 对话-黄
-  TYPE_HINT: 0xff6b6b, // 提示-橙红
-  TYPE_RESULT: 0xffd166 // 结算-金
+  // 高亮背景(伪图卡片 highlight=true 时)
+  HIGHLIGHT_BG: 0xffd166,
+  HIGHLIGHT_BG_ALPHA: 0.35
 } as const
+
+/**
+ * 伪图卡片类型默认样式表 - 单一来源,TextSprite 导入使用
+ * 颜色以 DATA_MODEL.md 第三章为准
+ * | type | borderColor | textColor | bgColor |
+ * | character | #FF8C00(橙) | #FFF | transparent |
+ * | object | #1E90FF(蓝) | #FFF | transparent |
+ * | scenery | #888(灰) | #DDD | transparent |
+ * | dialogue | #8B4513(棕) | #FFF | rgba(0,0,0,0.7) |
+ * | hint | #FFD700(金) | #000 | rgba(255,255,255,0.9) |
+ * | result | #FFD700(金) | #FFF | rgba(0,0,0,0.85) |
+ */
+export interface TextSpriteTypeStyle {
+  border: number
+  text: number
+  bg: number
+  bgAlpha: number // 0 = 透明
+}
+
+export const TEXT_SPRITE_STYLES: Record<
+  'character' | 'object' | 'scenery' | 'dialogue' | 'hint' | 'result',
+  TextSpriteTypeStyle
+> = {
+  character: { border: 0xff8c00, text: 0xffffff, bg: 0x000000, bgAlpha: 0 },
+  object: { border: 0x1e90ff, text: 0xffffff, bg: 0x000000, bgAlpha: 0 },
+  scenery: { border: 0x888888, text: 0xdddddd, bg: 0x000000, bgAlpha: 0 },
+  dialogue: { border: 0x8b4513, text: 0xffffff, bg: 0x000000, bgAlpha: 0.7 },
+  hint: { border: 0xffd700, text: 0x000000, bg: 0xffffff, bgAlpha: 0.9 },
+  result: { border: 0xffd700, text: 0xffffff, bg: 0x000000, bgAlpha: 0.85 }
+}
 
 /** UI 视图名称(中文,用于显示) */
 export const VIEW_LABELS = {

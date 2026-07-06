@@ -11,8 +11,16 @@ import { BootScene } from './scenes/BootScene'
 import { PreloadScene } from './scenes/PreloadScene'
 import { LevelScene } from './scenes/LevelScene'
 import { UIScene } from './scenes/UIScene'
+import { speakerManager } from '@/speakers/SpeakerManager'
+import { JyutpingSpeaker } from '@/speakers/JyutpingSpeaker'
+import { WebSpeechSpeaker } from '@/speakers/WebSpeechSpeaker'
 
 export function createPhaserGame(parent: HTMLElement): Phaser.Game {
+  // 注册发音引擎(第一个注册的设为 current)
+  // Demo 阶段:WebSpeech 普通话优先(发音完整),Jyutping 备选
+  speakerManager.register(new WebSpeechSpeaker())
+  speakerManager.register(new JyutpingSpeaker())
+
   return new Phaser.Game({
     type: Phaser.AUTO,
     parent,

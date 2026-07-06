@@ -294,6 +294,196 @@ src/
 
 ---
 
+## 2026-07-06 · 阶段3:核心系统(P1-P4)
+
+### 决策记录
+
+#### 18. TextSprite 实现:Container + 子对象,substring 实现 .gif 滚动
+
+**背景**:伪图卡片是全局视觉组件,需支持文字/边框/背景/尺寸/.gif 滚动/高亮/动效。
+
+**决策**:
+- 继承 `Phaser.GameObjects.Container`,子对象:background(Rectangle)+ borderRect(Rectangle stroke)+ mainText(Text)+ subtitleText(可选)
+- `.gif` 滚动:prepareScrollText 生成重复长串,updateScrollDisplay 每帧 substring,无需裁剪/掩码
+- 动效:none / shake(随机偏移)/ glow(边框 alpha 呼吸)/ bounce(缩放呼吸)
+- P2 扩展接口预留签名:setEffect / loadTexture(空实现,后续填充)
+- 自动注册 scene.events.on('update'),destroy 时 off 解绑
+
+**理由**:Container 可容纳多子对象且支持物理体(Platform/Coin/Npc 都需要);substring 滚动逻辑简单性能好,无需 Phaser 高级特性;扩展接口预留符合"核心组件可扩展"原则但不强制实现。
+
+---
+
+#### 19. TextSprite 删除 setFlipX:Container 类型未暴露 flipX 且中文镜像不可读
+
+**背景**:原计划 Player 移动时翻转 TextSprite 视觉表示朝向。
+
+**决策**:删除 setFlipX 方法。Player 不做视觉翻转,只用 facing 状态记录方向。
+
+**理由**:
+- Phaser.Container 运行时有 flipX,但 TS 类型定义未暴露,强转 any 不优雅
+- 中文文字镜像后不可读,违反"伪图卡片用文字传达信息"的设计
+- 阿粤立绘是文字"阿粤.jpg",翻转无意义
+
+---
+
+#### 20. Player 物理:Container + TextSprite 立绘,Arcade Physics + 二段跳 buff
+
+**背景**:Player 需 A/D 移动+惯性、W/Space 跳跃+二段跳、S 蹲、E 互动。
+
+**决策**:
+- 继承 Container,内部 sprite = new TextSprite(character 类型 "阿粤.jpg")
+- Arcade Physics:body2.setSize / setOffset(中心对齐)/ setCollideWorldBounds / setDragX(600 滑行)/ setMaxVelocityX
+- 跳跃:JustDown 边沿检测,grounded 时一段跳,maxJumps=1;setDoubleJump(true, multiplier) 后 maxJumps=2(对应"咸鱼翻身"buff)
+- 蹲下:setScale(1, 0.6) + 锁定移动
+- 互动:E 键 JustDown → emit 'player-interact' {x, y, facing}
+
+**理由**:Container + 物理体是 Phaser 平台跳跃标准方案;setDoubleJump 接口预留 buff 注入点,初赛第一关 buff = setDoubleJump(true, 1.3)。
+
+---
+
+#### 21. 关卡数据驱动:简化 JSON,初赛 Demo 不实现 LevelScript 钩子
+
+**背景**:DESIGN_PHILOSOPHY 决策13 将 LevelScript 降级为可选,初赛 Demo 预计无需独特机制。
+
+**决策**:
+- 关卡数据用简化 JSON:ground / platforms / coins / npcs / revealPosition / totalCoins / totalHidden
+- LevelScene 作为"关卡加载器":import JSON → 创建对象 → 配置碰撞 → 处理互动
+- 碰撞配置:平台 collider + 金币 overlap(coin.collect() 返回 boolean 防重复)+ 揭示点 overlap
+- E 互动:推进对话(talkingNpc.talk())或 findNearbyNpc(半径 80)
+- 不实现 LevelScript 钩子系统(务实扩展原则3:游戏可玩优先)
+
+**理由**:初赛 Demo 只做第一关,7 区铺垫链内容填充是后续子任务,无需通用钩子抽象;复杂逻辑直接写代码比硬塞 JSON/DSL 更清晰。
+
+---
+
+#### 22. 发音引擎务实简化:Web Audio 正弦波 + 6 声调频率映射,不追求真人发音
+
+**背景**:TECH_ARCH 8.2 要求"粤拼→音素映射表 + Web Audio API 合成"。真语音合成需音素库/神经网络,Web Audio 无法直接合成真人发音。
+
+**决策**:
+- JyutpingSpeaker 用 OscillatorNode(正弦波)+ GainNode(ADSR 包络)合成
+- 粤拼6声调 → 频率走向映射(语言学近似):调1 高平440 / 调2 高升330→440 / 调3 中平330 / 调4 低降220→165 / 调5 低升220→277 / 调6 低平220
+- 音节解析:正则 `/([a-z]+)([1-6])/g` 提取字母+声调,不严格区分声母韵母
+- 串行播放:async/await + Promise,每音节 220ms + 间隔 40ms
+- AudioContext 懒加载(首次 speak 创建,绕过浏览器自动播放策略)
+- speak(中文)无词典降级 console.warn + 静音;调用方用 speakJyutping(粤拼)
+- 失败降级:不可用/异常 → 静音 + console.warn,不阻塞游戏循环
+
+**理由**:
+- 初赛 Demo 目标是"让玩家听到有6声调起伏的电子音,感知粤语声调特征",非真人发音
+- 无外部资源依赖,加载快、零成本,符合"先做出好玩的 Demo"宗旨
+- 声调频率映射让玩家能区分"高平/高升/低降"等声调轮廓,有语言学教育意义
+- 后期可无缝替换为豆包 TTS(SpeakerManager 策略切换)
+
+**触发点**:
+- 金币拾取 → speakJyutping(coin.jyutping)(单音节,如 "leoi6")
+- 句子揭示 → speakJyutping(sentence.jyutping)(整句)
+- fire-and-forget(void,不阻塞游戏循环)
+
+---
+
+### 产出清单(阶段3 P1-P4)
+
+✅ P1 伪图卡片系统 TextSprite:`src/game/objects/TextSprite.ts`
+- Container + background/borderRect/mainText/subtitleText
+- .gif 滚动(substring)/ 高亮 / 4 种动效 / 扩展接口预留
+
+✅ P2 Player 物理控制:`src/game/objects/Player.ts`
+- Container + TextSprite 立绘 / Arcade Physics / A/D+W/Space+S+E / 二段跳 buff 接口
+
+✅ P3 关卡数据驱动:
+- `src/game/data/levels/level_01_fish.json`(第一关数据:4 platforms / 4 coins / 1 npc 老伯 / revealPosition)
+- `src/game/data/types.ts`(LevelData 等 TS 类型 + toSentence 转换)
+- `src/game/objects/Coin.ts`(继承 TextSprite,collect() 拾取动效防重复)
+- `src/game/objects/Npc.ts`(继承 TextSprite,talk() 循环推进对话)
+- `src/game/scenes/LevelScene.ts`(重写:JSON 加载 + 碰撞 + 互动 + 揭示)
+- `src/game/scenes/UIScene.ts`(重写:HUD + 对话卡片 + 句子揭示全屏卡片)
+
+✅ P4 发音引擎:`src/speakers/JyutpingSpeaker.ts`
+- 6 声调 → 频率映射表 + Web Audio 正弦波合成 + ADSR 包络
+- AudioContext 懒加载 + 失败降级
+- 注册到 SpeakerManager(PhaserGame.ts)
+- 金币拾取 + 句子揭示触发 speakJyutping
+
+### 遇到的问题
+
+- **LevelScene 未使用的 DialogueData 导入**:typecheck 报 TS6196,移除未用 import
+- **PowerShell profile 加载错误**:环境问题,不影响 npm 命令本身(npm.cmd 仍正常执行)
+- **dev server 端口 5173 被占用**:Vite 自动切换到 5174
+
+### 下一步
+
+阶段3 后续(P1 已完成核心4项,P2 剩余):
+- ⬜ 惊喜事件系统(三段式叙事)
+- ⬜ 第一关7区铺垫链内容填充
+- ⬜ Buff 系统(咸鱼翻身 = setDoubleJump(true, 1.3))
+- ⬜ 收集系统完善 + 通关结算伏笔
+
+阶段4:全链路联调 + 流畅性优化 + 演示打包
+
+---
+
+## 2026-07-06 · 阶段3 反馈修复
+
+### 决策记录
+
+#### 23. 发音引擎策略调整:Demo 阶段 WebSpeech 普通话优先,Jyutping 备选
+
+**背景**:用户反馈 JyutpingSpeaker 正弦波电子音无法完整读出句子,影响揭示时刻体验。建议 Demo 先用普通话发音,Demo 完成后再调粤语/豆包 TTS。
+
+**决策**:
+- 新增 WebSpeechSpeaker(浏览器 SpeechSynthesis API,普通话 zh-CN)
+- 注册顺序:WebSpeech 先注册(成为 current 默认),Jyutping 后注册(备选)
+- 触发点调整:
+  - 金币拾取 → speak(coin.word)(读"累/咸/梦/想"普通话)
+  - 句子揭示 → speak(sentence.mandarin)(读普通话释义)
+- 后期切换:speakerManager.use('jyutping') 或新增 DoubaoTTSSpeaker
+
+**理由**:
+- Demo 阶段游戏可玩性优先,发音完整性 > 语言学准确
+- WebSpeech 零依赖、支持中文、发音完整,对比 Jyutping 电子音更友好
+- SpeakerManager 策略模式价值体现:切换引擎不改调用方
+
+---
+
+#### 24. 老伯对话改普通话(对话语言规则修正)
+
+**背景**:用户反馈老伯对话用了粤语文字("后生仔""揾到你嘅答案"),违反 DESIGN_PHILOSOPHY 第三节"全程普通话对话,只有最终揭示句子是粤语"。
+
+**决策**:level_01_fish.json 老伯 3 句对话改普通话:
+- "年轻人,打工要打到什么时候啊?"
+- "咸鱼也是有梦想的...你说是不是?"
+- "跳到最高处去,找到你的答案吧。"
+
+**理由**:铺垫链全程普通话,粤语留给揭示时刻,降低认知负担。
+
+---
+
+#### 25. 对话框走开自动关闭
+
+**背景**:用户反馈对话完成后人物走开,对话框没消失。
+
+**决策**:LevelScene.update() 检测玩家与 talkingNpc 距离 > DIALOG_CLOSE_DISTANCE(120px)→ closeDialog() + emit 'close-dialog' → UIScene 隐藏对话卡片。
+
+**理由**:走开自动关闭是对话系统标准交互,玩家无需按额外键关闭。
+
+---
+
+### 产出清单(反馈修复)
+
+✅ 新增 `src/speakers/WebSpeechSpeaker.ts`(浏览器 SpeechSynthesis 普通话)
+✅ PhaserGame.ts 注册顺序调整(WebSpeech 优先)
+✅ LevelScene 金币/句子发音改 speak(普通话)
+✅ LevelScene.update() 走远自动关闭对话
+✅ level_01_fish.json 老伯对话改普通话
+✅ typecheck 通过 + 浏览器无报错
+
+### 下一步
+
+继续阶段3后续:惊喜事件 / 7区铺垫链 / Buff / 收集结算,或进入阶段4联调。
+
+---
+
 ## 模板:迭代记录格式
 
 ```
@@ -320,6 +510,8 @@ src/
 
 | 版本 | 日期 | 变更 |
 |------|------|------|
+| v1.5 | 2026-07-06 | 阶段3反馈修复(决策23-25:WebSpeech普通话优先/老伯对话改普通话/走开自动关对话) |
+| v1.4 | 2026-07-06 | 阶段3核心系统完成(决策18-22:TextSprite/Player/关卡数据驱动/JyutpingSpeaker) |
 | v1.3 | 2026-07-06 | 阶段2完成:技术骨架搭建(决策14-17,Vue3+Phaser+Pinia 跑通) |
 | v1.2 | 2026-07-06 | 补充决策13(可扩展性再修正为务实扩展) |
 | v1.1 | 2026-07-06 | 补充决策11(可扩展性分层修正)、12(LEVEL_DESIGN 目录拆分) |

@@ -1,0 +1,68 @@
+{
+  "id": "level_01_fish",
+  "name": "咸鱼翻身",
+  "themeTag": "打工同咸鱼有咩区别?",
+  "targetSentence": {
+    "cantonese": "做人如果冇梦想,跟咸鱼有咩分别?",
+    "jyutping": "zou6 jan4 jyu4 gwo2 mou5 mung6 soeng2, gan1 haam4 jyu4 jau5 me1 faan1 bit6?",
+    "mandarin": "做人如果没有梦想,那跟咸鱼有什么分别?",
+    "source": "周星驰《少林足球》"
+  },
+  "spawn": { "x": 120, "y": 600 },
+  "ground": {
+    "position": { "x": 640, "y": 700 },
+    "size": { "width": 1280, "height": 40 },
+    "card": { "type": "object", "text": "地板", "suffix": ".jpg" }
+  },
+  "platforms": [
+    {
+      "id": "platform_work",
+      "type": "static",
+      "position": { "x": 220, "y": 560 },
+      "size": { "width": 200, "height": 20 },
+      "card": { "type": "object", "text": "打工平台", "suffix": ".jpg" }
+    },
+    {
+      "id": "platform_fish",
+      "type": "static",
+      "position": { "x": 520, "y": 470 },
+      "size": { "width": 180, "height": 20 },
+      "card": { "type": "object", "text": "咸鱼平台", "suffix": ".jpg" }
+    },
+    {
+      "id": "platform_question",
+      "type": "static",
+      "position": { "x": 820, "y": 390 },
+      "size": { "width": 180, "height": 20 },
+      "card": { "type": "object", "text": "问号平台", "suffix": ".jpg" }
+    },
+    {
+      "id": "platform_challenge",
+      "type": "static",
+      "position": { "x": 1100, "y": 300 },
+      "size": { "width": 160, "height": 20 },
+      "card": { "type": "object", "text": "挑战平台", "suffix": ".jpg" }
+    }
+  ],
+  "coins": [
+    { "id": "coin_1", "position": { "x": 220, "y": 520 }, "word": "累", "jyutping": "leoi6" },
+    { "id": "coin_2", "position": { "x": 520, "y": 430 }, "word": "咸", "jyutping": "haam4" },
+    { "id": "coin_3", "position": { "x": 820, "y": 350 }, "word": "梦", "jyutping": "mung6" },
+    { "id": "coin_4", "position": { "x": 1100, "y": 260 }, "word": "想", "jyutping": "soeng2" }
+  ],
+  "npcs": [
+    {
+      "id": "npc_oldMan",
+      "card": { "type": "character", "text": "老伯", "suffix": ".jpg" },
+      "position": { "x": 100, "y": 660 },
+      "dialogues": [
+        { "speaker": "老伯", "text": "年轻人,打工要打到什么时候啊?" },
+        { "speaker": "老伯", "text": "咸鱼也是有梦想的...你说是不是?" },
+        { "speaker": "老伯", "text": "跳到最高处去,找到你的答案吧。" }
+      ]
+    }
+  ],
+  "revealPosition": { "x": 1100, "y": 260 },
+  "totalCoins": 4,
+  "totalHidden": 0
+}
