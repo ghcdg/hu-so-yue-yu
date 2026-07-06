@@ -42,6 +42,11 @@ export class Npc extends TextSprite {
     return line
   }
 
+  /** 获取当前对话索引(用于外部判断对话进度) */
+  getCurrentIndex(): number {
+    return this.currentIndex
+  }
+
   /** 是否还有未读完的对话(用于"按 E 继续"提示) */
   hasMore(): boolean {
     return this.currentIndex !== 0

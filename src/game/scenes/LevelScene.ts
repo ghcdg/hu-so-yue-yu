@@ -16,8 +16,6 @@ import { TextSprite } from '@/game/objects/TextSprite'
 import { Player } from '@/game/objects/Player'
 import { Coin } from '@/game/objects/Coin'
 import { Npc } from '@/game/objects/Npc'
-import { MovableNpc } from '@/game/objects/MovableNpc'
-import type { MovableNpcData } from '@/game/objects/MovableNpc'
 import { InteractableObject } from '@/game/objects/InteractableObject'
 import type { ChaseSceneConfig } from '@/game/scenes/ChaseScene'
 import { SfxManager } from '@/game/systems/SfxManager'
@@ -61,8 +59,8 @@ export class LevelScene extends Phaser.Scene {
   /** 当前互动提示文字(避免重复 emit) */
   private currentHint = ''
 
-  /** 测试 MovableNpc(v0.2 验证) */
-  private testMovableNpc!: MovableNpc
+  /** 追捕子场景是否已触发(防重复) */
+  private chaseTriggered = false
 
   constructor() {
     super(SCENE.LEVEL)
@@ -133,37 +131,6 @@ export class LevelScene extends Phaser.Scene {
       this.interactables.push(obj)
     }
 
-    // ── 测试 MovableNpc(v0.2 验证) ──
-    const testNpcData: MovableNpcData = {
-      id: 'test_runner',
-      card: {
-        type: 'character',
-        text: '老伯',
-        suffix: '.jpg',
-        size: { width: 50, height: 60 },
-        borderWidth: 2,
-        stateBinding: {
-          sourceId: 'test_runner',
-          textMap: { idle: '老伯', patrol: '巡', flee: '逃!', caught: '啊!' }
-        }
-      },
-      position: { x: 500, y: 160 },
-      dialogues: [{ speaker: '老伯', text: '你抓到我了!' }],
-      patrolPoints: [
-        { x: 400, y: 160 },
-        { x: 600, y: 160 }
-      ],
-      fleeSpeed: 180,
-      chaseTriggerRadius: 150,
-      initialState: 'patrol'
-    }
-    this.testMovableNpc = new MovableNpc(this, testNpcData)
-    this.testMovableNpc.bindState(this.testMovableNpc, testNpcData.card.stateBinding!.textMap)
-    this.testMovableNpc.onCaught = () => {
-      this.events.emit('show-toast', '抓到老伯了!')
-    }
-    this.physics.add.collider(this.testMovableNpc, [ground, ...this.platforms])
-
     // ── Player ──
     this.player = new Player(this, LEVEL.spawn.x, LEVEL.spawn.y)
     // 验证:状态驱动卡片(v0.2 demo) - 玩家卡片实时显示动作
@@ -182,13 +149,6 @@ export class LevelScene extends Phaser.Scene {
 
     // ── 碰撞配置 ──
     this.physics.add.collider(this.player, [ground, ...this.platforms])
-
-    // 测试:玩家碰到 MovableNpc(追捕验证)
-    this.physics.add.overlap(this.player, this.testMovableNpc, () => {
-      if (this.testMovableNpc && this.testMovableNpc.getAiState() !== 'caught') {
-        this.testMovableNpc.catch()
-      }
-    })
 
     // 金币拾取(overlap)
     this.physics.add.overlap(
@@ -230,6 +190,13 @@ export class LevelScene extends Phaser.Scene {
           // NPC 对话:循环推进(talk() 内部循环)
           const line = this.talkingNpc.talk()
           this.events.emit('show-dialog', line)
+          // 老伯第3句对话后触发追捕子场景(talk() 播完最后一句后 currentIndex 归零)
+          if (this.talkingNpc.npcId === 'npc_oldMan' && this.talkingNpc.getCurrentIndex() === 0 && !this.chaseTriggered) {
+            this.chaseTriggered = true
+            this.closeDialog()
+            this.events.emit('close-dialog')
+            this.time.delayedCall(500, () => this.startChaseScene())
+          }
         } else if (this.surpriseDialogueQueue.length > 0) {
           // 惊喜对话:emit 下一条
           this.events.emit('show-dialog', this.surpriseDialogueQueue.shift()!)
@@ -259,35 +226,6 @@ export class LevelScene extends Phaser.Scene {
 
     // ── ESC 通关 ──
     this.input.keyboard?.on('keydown-ESC', () => this.finishLevel())
-
-    // 测试:按 C 键触发追捕子场景(v0.2 验证)
-    this.input.keyboard?.on('keydown-C', () => {
-      this.scene.launch(SCENE.CHASE, {
-        id: 'chase_oldman',
-        type: 'chase',
-        worldSize: { width: 800, height: 600 },
-        platforms: [
-          { id: 'p1', type: 'static', position: { x: 200, y: 480 }, size: { width: 120, height: 20 } },
-          { id: 'p2', type: 'static', position: { x: 400, y: 400 }, size: { width: 120, height: 20 } },
-          { id: 'p3', type: 'static', position: { x: 600, y: 320 }, size: { width: 120, height: 20 } },
-          { id: 'p4', type: 'static', position: { x: 400, y: 240 }, size: { width: 120, height: 20 } },
-          { id: 'p5', type: 'static', position: { x: 200, y: 160 }, size: { width: 120, height: 20 } }
-        ],
-        playerSpawn: { x: 100, y: 500 },
-        fugitive: {
-          npcId: 'oldman',
-          card: { type: 'character', text: '老伯', suffix: '.jpg', size: { width: 50, height: 60 }, borderWidth: 2 },
-          spawn: { x: 600, y: 200 },
-          fleeSpeed: 180,
-          patrolPoints: [{ x: 600, y: 200 }, { x: 400, y: 200 }]
-        },
-        caughtDialogue: [
-          { speaker: '老伯', text: '好啦好啦,年轻人腿脚真快!' },
-          { speaker: '老伯', text: '咸鱼就在前面,去看看吧!' }
-        ],
-        onComplete: { unlockPath: 'zone_2_fish' }
-      } as ChaseSceneConfig)
-    })
 
     // 子场景结果监听
     this.events.on('subscene-result', (result: any) => {
@@ -495,11 +433,6 @@ export class LevelScene extends Phaser.Scene {
       return
     }
 
-    // 测试:MovableNpc AI 更新(v0.2 验证)
-    if (this.testMovableNpc) {
-      this.testMovableNpc.updateAI(this.player.x, this.player.y)
-    }
-
     // 对话走远自动关闭(统一用 dialogAnchor 检测 NPC/惊喜对话)
     if (this.dialogAnchor) {
       const dx = this.dialogAnchor.x - this.player.x
@@ -558,5 +491,34 @@ export class LevelScene extends Phaser.Scene {
     this.events.off('player-interact')
     this.input.keyboard?.off('keydown-ESC')
     this.scene.stop(SCENE.UI)
+  }
+
+  /** 启动追捕老伯子场景(老伯对话第3句话触发) */
+  private startChaseScene(): void {
+    this.scene.launch(SCENE.CHASE, {
+      id: 'chase_oldman',
+      type: 'chase',
+      worldSize: { width: 800, height: 600 },
+      platforms: [
+        { id: 'p1', type: 'static', position: { x: 200, y: 480 }, size: { width: 120, height: 20 } },
+        { id: 'p2', type: 'static', position: { x: 400, y: 400 }, size: { width: 120, height: 20 } },
+        { id: 'p3', type: 'static', position: { x: 600, y: 320 }, size: { width: 120, height: 20 } },
+        { id: 'p4', type: 'static', position: { x: 400, y: 240 }, size: { width: 120, height: 20 } },
+        { id: 'p5', type: 'static', position: { x: 200, y: 160 }, size: { width: 120, height: 20 } }
+      ],
+      playerSpawn: { x: 100, y: 500 },
+      fugitive: {
+        npcId: 'oldman',
+        card: { type: 'character', text: '老伯', suffix: '.jpg', size: { width: 50, height: 60 }, borderWidth: 2 },
+        spawn: { x: 600, y: 200 },
+        fleeSpeed: 180,
+        patrolPoints: [{ x: 600, y: 200 }, { x: 400, y: 200 }]
+      },
+      caughtDialogue: [
+        { speaker: '老伯', text: '好啦好啦,年轻人腿脚真快!' },
+        { speaker: '老伯', text: '咸鱼就在前面,去看看吧!' }
+      ],
+      onComplete: { unlockPath: 'zone_2_fish' }
+    } as ChaseSceneConfig)
   }
 }
