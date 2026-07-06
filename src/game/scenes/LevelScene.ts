@@ -57,6 +57,10 @@ export class LevelScene extends Phaser.Scene {
   private dialogActive = false
   /** 已触发的惊喜ID集合(防重复) */
   private triggeredSurprises = new Set<string>()
+  /** 检查点:从 zones 数据提取,按 x 坐标升序排列 */
+  private checkpoints: { x: number; y: number }[] = []
+  /** 当前到达的检查点下标(0=起点) */
+  private currentCheckpointIndex = 0
   /** 当前互动提示文字(避免重复 emit) */
   private currentHint = ''
 
@@ -68,8 +72,6 @@ export class LevelScene extends Phaser.Scene {
   }
 
   create(): void {
-    console.log('[LevelScene] create() 开始')
-    try {
     this.coins = 0
     this.hidden = 0
     this.startTime = this.time.now
@@ -230,7 +232,6 @@ export class LevelScene extends Phaser.Scene {
 
     // 子场景结果监听
     this.events.on('subscene-result', (result: any) => {
-      console.log('[LevelScene] 子场景回传:', result)
       if (result.outcome === 'success') {
         // 足球子场景:收集文字奖励
         if (result.rewards?.word && result.rewards?.jyutping) {
@@ -256,10 +257,20 @@ export class LevelScene extends Phaser.Scene {
     // 启动 UIScene
     this.scene.launch(SCENE.UI)
     eventBus.emit({ type: 'level-start', levelId: LEVEL.id })
-    console.log('[LevelScene] create() 完成')
-    } catch (err) {
-      console.error('[LevelScene] create() 出错:', err)
+
+    // 检查点:从 zones 数据提取,按 x 升序排列;无 zones 则仅用起点
+    this.checkpoints = [{ x: LEVEL.spawn.x, y: LEVEL.spawn.y }]
+    if (LEVEL.zones && LEVEL.zones.length > 0) {
+      const zonePoints = LEVEL.zones
+        .filter(z => z.checkpoint)
+        .map(z => z.checkpoint!)
+        .sort((a, b) => a.x - b.x)
+      this.checkpoints = [
+        { x: LEVEL.spawn.x, y: LEVEL.spawn.y },
+        ...zonePoints
+      ]
     }
+    this.currentCheckpointIndex = 0
   }
 
   /** 创建平台(TextSprite + 静态物理体) */
@@ -420,6 +431,8 @@ export class LevelScene extends Phaser.Scene {
     // 阶段2+3:delayMs 后同时显示 reveal 卡片(中央偏上)+ 对话(底部)
     // 位置分离,互不干扰;玩家可自由操作
     this.time.delayedCall(surprise.setup.delayMs, () => {
+      // 镜头震动增强惊喜冲击力
+      this.cameras.main.shake(200, 0.01)
       this.events.emit('surprise-reveal', {
         characterCard: surprise.reveal.characterCard,
         scrollText: surprise.reveal.scrollText
@@ -457,7 +470,13 @@ export class LevelScene extends Phaser.Scene {
   update(): void {
     if (!this.player) return
 
-    // 掉落检测(超出世界底部 → 复活)
+    // 检查点:玩家跨过下一个检查点 x 坐标时自动保存
+    const nextIdx = this.currentCheckpointIndex + 1
+    if (nextIdx < this.checkpoints.length && this.player.x > this.checkpoints[nextIdx].x) {
+      this.currentCheckpointIndex = nextIdx
+    }
+
+    // 掉落检测(超出世界底部 → 复活到最近检查点)
     const worldH = LEVEL.worldSize.height
     if (this.player.y > worldH + 80) {
       // 关闭对话(如果有)
@@ -465,8 +484,10 @@ export class LevelScene extends Phaser.Scene {
         this.closeDialog()
         this.events.emit('close-dialog')
       }
-      this.player.respawn(LEVEL.spawn.x, LEVEL.spawn.y)
-      this.events.emit('show-toast', '掉下去了!回到起点')
+      const cp = this.checkpoints[this.currentCheckpointIndex]
+      this.player.respawn(cp.x, cp.y)
+      this.cameras.main.flash(300, 40, 40, 60)
+      this.events.emit('show-toast', '掉下去了!回到最近检查点')
       return
     }
 
@@ -506,9 +527,13 @@ export class LevelScene extends Phaser.Scene {
   }
 
   private finishLevel(): void {
-    eventBus.emit({
-      type: 'level-complete',
-      result: {
+    // 通关镜头缩放 + 淡出过渡
+    this.cameras.main.zoomTo(0.6, 600)
+    this.cameras.main.fadeOut(600, 0, 0, 0)
+    this.cameras.main.once('camerafadeoutcomplete', () => {
+      eventBus.emit({
+        type: 'level-complete',
+        result: {
         levelId: LEVEL.id,
         levelName: LEVEL.name,
         coins: this.coins,
@@ -519,6 +544,7 @@ export class LevelScene extends Phaser.Scene {
         rank: this.coins >= LEVEL.totalCoins ? '梦想家' : this.coins >= 3 ? '咸鱼之王' : '咸鱼翻身',
         epilogue: LEVEL.epilogue
       }
+    })
     })
   }
 

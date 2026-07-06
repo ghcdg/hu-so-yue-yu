@@ -124,6 +124,8 @@ export interface LevelData {
   npcs: NpcData[]
   interactables: InteractableData[]
   surprises: SurpriseData[]
+  /** 区域分组(v0.2):每个区域定义入口和检查点 */
+  zones?: ZoneData[]
   revealPosition: { x: number; y: number }
   /** 登台门槛(v0.2):需要集齐的金币数,0 或未设置则无门槛 */
   requireCoins?: number

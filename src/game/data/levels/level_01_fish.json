@@ -203,6 +203,15 @@
       }
     }
   ],
+  "zones": [
+    { "id": "zone_work", "name": "打工", "bounds": { "x": 0, "y": 0, "width": 400, "height": 720 }, "checkpoint": { "x": 280, "y": 540 } },
+    { "id": "zone_fish", "name": "咸鱼", "bounds": { "x": 400, "y": 0, "width": 300, "height": 720 }, "checkpoint": { "x": 520, "y": 480 } },
+    { "id": "zone_corner", "name": "街角", "bounds": { "x": 700, "y": 0, "width": 400, "height": 720 }, "checkpoint": { "x": 1000, "y": 660 } },
+    { "id": "zone_effort", "name": "功夫", "bounds": { "x": 1100, "y": 0, "width": 300, "height": 720 }, "checkpoint": { "x": 1240, "y": 320 } },
+    { "id": "zone_dream", "name": "梦想", "bounds": { "x": 1400, "y": 0, "width": 300, "height": 720 }, "checkpoint": { "x": 1500, "y": 660 } },
+    { "id": "zone_challenge", "name": "挑战", "bounds": { "x": 1700, "y": 0, "width": 400, "height": 720 }, "checkpoint": { "x": 2100, "y": 260 } },
+    { "id": "zone_reveal", "name": "揭示", "bounds": { "x": 2100, "y": 0, "width": 300, "height": 720 }, "checkpoint": { "x": 2250, "y": 180 } }
+  ],
   "revealPosition": { "x": 2250, "y": 160 },
   "requireCoins": 5,
   "lockedHint": "还需收集汉字才能登台!每个金币是一个汉字哦~",

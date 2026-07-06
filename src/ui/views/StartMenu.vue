@@ -8,10 +8,8 @@ import { useGameStore } from '@/ui/stores/gameStore'
 const store = useGameStore()
 
 function startGame() {
-  console.log('[StartMenu] 开始游戏按钮被点击')
-  // 第一关:咸鱼梦想(周星驰《少林足球》)
+  // 第一关:咸鱼翻身(周星驰《少林足球》)
   store.startGame('level_01_fish')
-  console.log('[StartMenu] store.startGame 完成, view:', store.view, 'levelId:', store.currentLevelId)
 }
 </script>
 

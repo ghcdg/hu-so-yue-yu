@@ -62,6 +62,9 @@ export abstract class BaseSubScene extends Phaser.Scene {
 
     // 子类实现具体内容
     this.onSubSceneCreate(data)
+
+    // 进场淡入效果
+    this.cameras.main.fadeIn(250, 0, 0, 0)
   }
 
   /** 子类实现:创建子场景内容 */
