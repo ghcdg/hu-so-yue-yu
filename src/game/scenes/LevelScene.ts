@@ -16,7 +16,11 @@ import { TextSprite } from '@/game/objects/TextSprite'
 import { Player } from '@/game/objects/Player'
 import { Coin } from '@/game/objects/Coin'
 import { Npc } from '@/game/objects/Npc'
+import { MovableNpc } from '@/game/objects/MovableNpc'
+import type { MovableNpcData } from '@/game/objects/MovableNpc'
 import { InteractableObject } from '@/game/objects/InteractableObject'
+import type { ChaseSceneConfig } from '@/game/scenes/ChaseScene'
+import { SfxManager } from '@/game/systems/SfxManager'
 import levelData from '@/game/data/levels/level_01_fish.json'
 import type { LevelData, SurpriseData, BuffData, InteractAction, DialogueData } from '@/game/data/types'
 import { toSentence } from '@/game/data/types'
@@ -57,11 +61,16 @@ export class LevelScene extends Phaser.Scene {
   /** 当前互动提示文字(避免重复 emit) */
   private currentHint = ''
 
+  /** 测试 MovableNpc(v0.2 验证) */
+  private testMovableNpc!: MovableNpc
+
   constructor() {
     super(SCENE.LEVEL)
   }
 
   create(): void {
+    console.log('[LevelScene] create() 开始')
+    try {
     this.coins = 0
     this.hidden = 0
     this.startTime = this.time.now
@@ -124,8 +133,47 @@ export class LevelScene extends Phaser.Scene {
       this.interactables.push(obj)
     }
 
+    // ── 测试 MovableNpc(v0.2 验证) ──
+    const testNpcData: MovableNpcData = {
+      id: 'test_runner',
+      card: {
+        type: 'character',
+        text: '老伯',
+        suffix: '.jpg',
+        size: { width: 50, height: 60 },
+        borderWidth: 2,
+        stateBinding: {
+          sourceId: 'test_runner',
+          textMap: { idle: '老伯', patrol: '巡', flee: '逃!', caught: '啊!' }
+        }
+      },
+      position: { x: 500, y: 160 },
+      dialogues: [{ speaker: '老伯', text: '你抓到我了!' }],
+      patrolPoints: [
+        { x: 400, y: 160 },
+        { x: 600, y: 160 }
+      ],
+      fleeSpeed: 180,
+      chaseTriggerRadius: 150,
+      initialState: 'patrol'
+    }
+    this.testMovableNpc = new MovableNpc(this, testNpcData)
+    this.testMovableNpc.bindState(this.testMovableNpc, testNpcData.card.stateBinding!.textMap)
+    this.testMovableNpc.onCaught = () => {
+      this.events.emit('show-toast', '抓到老伯了!')
+    }
+    this.physics.add.collider(this.testMovableNpc, [ground, ...this.platforms])
+
     // ── Player ──
     this.player = new Player(this, LEVEL.spawn.x, LEVEL.spawn.y)
+    // 验证:状态驱动卡片(v0.2 demo) - 玩家卡片实时显示动作
+    this.player.bindCardState({
+      idle: '阿粤', run: '跑', jump: '跳', fall: '落', crouch: '蹲'
+    })
+    // 音效回调
+    this.player.onSfx = (type) => {
+      SfxManager.getInstance().play(type)
+    }
     this.cameras.main.startFollow(this.player, true, 0.1, 0.1)
 
     // ── 揭示点(隐形 zone) ──
@@ -135,6 +183,13 @@ export class LevelScene extends Phaser.Scene {
     // ── 碰撞配置 ──
     this.physics.add.collider(this.player, [ground, ...this.platforms])
 
+    // 测试:玩家碰到 MovableNpc(追捕验证)
+    this.physics.add.overlap(this.player, this.testMovableNpc, () => {
+      if (this.testMovableNpc && this.testMovableNpc.getAiState() !== 'caught') {
+        this.testMovableNpc.catch()
+      }
+    })
+
     // 金币拾取(overlap)
     this.physics.add.overlap(
       this.player,
@@ -143,6 +198,7 @@ export class LevelScene extends Phaser.Scene {
         const coin = obj2 as Coin
         if (coin.collect()) {
           this.coins++
+          SfxManager.getInstance().play('coin')
           this.emitHudUpdate()
           eventBus.emit({ type: 'coin-collected', word: coin.word, count: this.coins })
           // 铺垫链过程不发音:让玩家潜意识拼凑碎片,不打扰(DESIGN_PHILOSOPHY 原则3)
@@ -150,16 +206,20 @@ export class LevelScene extends Phaser.Scene {
       }
     )
 
-    // 揭示点检测
+    // 揭示点检测(含登台门槛 v0.2)
     this.physics.add.overlap(this.player, this.revealZone, () => {
-      if (!this.revealed) {
-        this.revealed = true
-        const sentence = toSentence(LEVEL.targetSentence)
-        this.events.emit('reveal-sentence', sentence)
-        eventBus.emit({ type: 'sentence-revealed', sentence })
-        // 朗读普通话释义(fire-and-forget,不阻塞游戏循环)
-        void speakerManager.speak(sentence.mandarin)
+      if (this.revealed) return
+      const reqCoins = LEVEL.requireCoins ?? 0
+      if (this.coins < reqCoins) {
+        this.events.emit('show-toast', LEVEL.lockedHint ?? `还需收集 ${reqCoins - this.coins} 个汉字才能登台!`)
+        return
       }
+      this.revealed = true
+      const sentence = toSentence(LEVEL.targetSentence)
+      this.events.emit('reveal-sentence', sentence)
+      eventBus.emit({ type: 'sentence-revealed', sentence })
+      // 朗读普通话释义(fire-and-forget,不阻塞游戏循环)
+      void speakerManager.speak(sentence.mandarin)
     })
 
     // ── E 互动:推进对话 / 触发可互动物件 / 触发 NPC 对话 ──
@@ -200,12 +260,51 @@ export class LevelScene extends Phaser.Scene {
     // ── ESC 通关 ──
     this.input.keyboard?.on('keydown-ESC', () => this.finishLevel())
 
+    // 测试:按 C 键触发追捕子场景(v0.2 验证)
+    this.input.keyboard?.on('keydown-C', () => {
+      this.scene.launch(SCENE.CHASE, {
+        id: 'chase_oldman',
+        type: 'chase',
+        worldSize: { width: 800, height: 600 },
+        platforms: [
+          { id: 'p1', type: 'static', position: { x: 200, y: 480 }, size: { width: 120, height: 20 } },
+          { id: 'p2', type: 'static', position: { x: 400, y: 400 }, size: { width: 120, height: 20 } },
+          { id: 'p3', type: 'static', position: { x: 600, y: 320 }, size: { width: 120, height: 20 } },
+          { id: 'p4', type: 'static', position: { x: 400, y: 240 }, size: { width: 120, height: 20 } },
+          { id: 'p5', type: 'static', position: { x: 200, y: 160 }, size: { width: 120, height: 20 } }
+        ],
+        playerSpawn: { x: 100, y: 500 },
+        fugitive: {
+          npcId: 'oldman',
+          card: { type: 'character', text: '老伯', suffix: '.jpg', size: { width: 50, height: 60 }, borderWidth: 2 },
+          spawn: { x: 600, y: 200 },
+          fleeSpeed: 180,
+          patrolPoints: [{ x: 600, y: 200 }, { x: 400, y: 200 }]
+        },
+        caughtDialogue: [
+          { speaker: '老伯', text: '好啦好啦,年轻人腿脚真快!' },
+          { speaker: '老伯', text: '咸鱼就在前面,去看看吧!' }
+        ],
+        onComplete: { unlockPath: 'zone_2_fish' }
+      } as ChaseSceneConfig)
+    })
+
+    // 子场景结果监听
+    this.events.on('subscene-result', (result: any) => {
+      console.log('[LevelScene] 子场景回传:', result)
+      this.events.emit('show-toast', result.outcome === 'success' ? '追捕成功!' : '追捕取消')
+    })
+
     // 场景关闭时清理
     this.events.on('shutdown', this.onShutdown, this)
 
     // 启动 UIScene
     this.scene.launch(SCENE.UI)
     eventBus.emit({ type: 'level-start', levelId: LEVEL.id })
+    console.log('[LevelScene] create() 完成')
+    } catch (err) {
+      console.error('[LevelScene] create() 出错:', err)
+    }
   }
 
   /** 创建平台(TextSprite + 静态物理体) */
@@ -394,6 +493,11 @@ export class LevelScene extends Phaser.Scene {
       this.player.respawn(LEVEL.spawn.x, LEVEL.spawn.y)
       this.events.emit('show-toast', '掉下去了!回到起点')
       return
+    }
+
+    // 测试:MovableNpc AI 更新(v0.2 验证)
+    if (this.testMovableNpc) {
+      this.testMovableNpc.updateAI(this.player.x, this.player.y)
     }
 
     // 对话走远自动关闭(统一用 dialogAnchor 检测 NPC/惊喜对话)

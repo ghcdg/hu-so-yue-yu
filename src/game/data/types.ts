@@ -124,10 +124,27 @@ export interface LevelData {
   interactables: InteractableData[]
   surprises: SurpriseData[]
   revealPosition: { x: number; y: number }
+  /** 登台门槛(v0.2):需要集齐的金币数,0 或未设置则无门槛 */
+  requireCoins?: number
+  /** 金币不足时的提示(v0.2) */
+  lockedHint?: string
   totalCoins: number
   totalHidden: number
   /** 伏笔台词(结算页显示,老伯再次出现埋第二关悬念) */
   epilogue?: { speaker: string; lines: string[] }
+}
+
+/** 区域数据(v0.2 新增,关卡可选分区域组织) */
+export interface ZoneData {
+  id: string
+  name: string
+  bounds: { x: number; y: number; width: number; height: number }
+  /** 进入区域时触发的子场景ID */
+  cutsceneId?: string
+  /** 进入时显示的引导文字 */
+  enterHint?: string
+  /** 检查点位置(掉落复活点) */
+  checkpoint?: { x: number; y: number }
 }
 
 /** 将 SentenceData 转为 Sentence(shared 类型) */

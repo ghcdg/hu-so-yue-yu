@@ -69,3 +69,13 @@ export type TextSpriteType =
 
 /** 游戏视图状态(Vue UI 层路由) */
 export type UIView = 'menu' | 'game' | 'result'
+
+/**
+ * 状态文字源接口（v0.2 新增）
+ * 任何对象实现此接口即可驱动 TextSprite 卡片实时显示对应文字。
+ * 例如: Player 返回 'run'/'jump'/..., MovableNpc 返回 'flee'/'caught'...
+ */
+export interface StateTextSource {
+  /** 返回当前状态标识（由状态映射表映射为卡片文字） */
+  getStateLabel(): string
+}

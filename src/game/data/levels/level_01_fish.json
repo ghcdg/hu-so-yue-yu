@@ -205,6 +205,8 @@
     }
   ],
   "revealPosition": { "x": 2250, "y": 160 },
+  "requireCoins": 5,
+  "lockedHint": "还需收集汉字才能登台!每个金币是一个汉字哦~",
   "totalCoins": 5,
   "totalHidden": 1,
   "epilogue": {

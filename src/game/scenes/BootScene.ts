@@ -12,7 +12,11 @@ export class BootScene extends Phaser.Scene {
   }
 
   create(): void {
-    console.log('[BootScene] 引擎启动')
-    this.scene.start(SCENE.PRELOAD)
+    console.log('[BootScene] 引擎启动, 跳转 PreloadScene')
+    try {
+      this.scene.start(SCENE.PRELOAD)
+    } catch (err) {
+      console.error('[BootScene] 出错:', err)
+    }
   }
 }

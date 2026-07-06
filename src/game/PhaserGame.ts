@@ -11,6 +11,7 @@ import { BootScene } from './scenes/BootScene'
 import { PreloadScene } from './scenes/PreloadScene'
 import { LevelScene } from './scenes/LevelScene'
 import { UIScene } from './scenes/UIScene'
+import { ChaseScene } from './scenes/ChaseScene'
 import { speakerManager } from '@/speakers/SpeakerManager'
 import { JyutpingSpeaker } from '@/speakers/JyutpingSpeaker'
 import { WebSpeechSpeaker } from '@/speakers/WebSpeechSpeaker'
@@ -38,6 +39,6 @@ export function createPhaserGame(parent: HTMLElement): Phaser.Game {
         debug: false
       }
     },
-    scene: [BootScene, PreloadScene, LevelScene, UIScene]
+    scene: [BootScene, PreloadScene, LevelScene, UIScene, ChaseScene]
   })
 }

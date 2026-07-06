@@ -7,7 +7,11 @@ export const SCENE = {
   BOOT: 'BootScene',
   PRELOAD: 'PreloadScene',
   LEVEL: 'LevelScene',
-  UI: 'UIScene'
+  UI: 'UIScene',
+  /** 追捕子场景(v0.2) */
+  CHASE: 'ChaseScene',
+  /** 剧情对话子场景(v0.2) */
+  DIALOGUE: 'DialogueScene'
 } as const
 
 /** 游戏画布尺寸(16:9) */

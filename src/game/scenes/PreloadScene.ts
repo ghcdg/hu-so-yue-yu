@@ -19,7 +19,11 @@ export class PreloadScene extends Phaser.Scene {
   }
 
   create(): void {
-    console.log('[PreloadScene] 资源就绪,跳转关卡场景')
-    this.scene.start(SCENE.LEVEL)
+    console.log('[PreloadScene] 资源就绪, 跳转 LevelScene')
+    try {
+      this.scene.start(SCENE.LEVEL)
+    } catch (err) {
+      console.error('[PreloadScene] 出错:', err)
+    }
   }
 }

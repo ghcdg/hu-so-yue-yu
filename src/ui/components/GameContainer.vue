@@ -14,10 +14,15 @@ let game: Phaser.Game | null = null
 const containerRef = ref<HTMLDivElement | null>(null)
 
 function mountGame() {
-  if (!containerRef.value) return
+  if (!containerRef.value) {
+    console.error('[GameContainer] containerRef 为空, 无法挂载游戏')
+    return
+  }
+  console.log('[GameContainer] 挂载 Phaser 游戏到容器:', containerRef.value)
   // 销毁旧实例(切关时)
   destroyGame()
   game = createPhaserGame(containerRef.value)
+  console.log('[GameContainer] Phaser 游戏创建完成')
 }
 
 function destroyGame() {

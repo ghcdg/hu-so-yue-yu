@@ -21,6 +21,7 @@
  */
 import Phaser from 'phaser'
 import { TEXT_SPRITE_STYLES, COLORS } from '@/shared/constants'
+import type { StateTextSource } from '@/shared/types'
 
 export type TextSpriteType =
   | 'character'
@@ -68,6 +69,12 @@ export interface TextSpriteConfig {
   interactHint?: string
   /** 默认动效:none / shake / glow / bounce */
   animation?: TextSpriteAnimation
+  /** 状态绑定(v0.2 新增,可选):绑定后卡片文字随状态源变化 */
+  stateBinding?: {
+    sourceId: string       // 状态源ID(如 'player' / 'npc_oldMan')
+    textMap: Record<string, string>  // 状态→文字映射
+    subtitleMap?: Record<string, string> // 状态→副文字映射(可选)
+  }
 }
 
 // 默认值
@@ -127,6 +134,12 @@ export class TextSprite extends Phaser.GameObjects.Container {
   // 文字裁剪 mask(仅 .gif 模式,放在 scene 层级避免遮文字)
   private clipMask: Phaser.Display.Masks.GeometryMask | null = null
   private maskGraphics: Phaser.GameObjects.Graphics | null = null
+
+  // 状态驱动(v0.2 新增)
+  private stateSource: StateTextSource | null = null
+  private stateTextMap: Record<string, string> | null = null
+  private stateSubtitleMap: Record<string, string> | null = null
+  private lastStateLabel = ''
 
   // 动效状态
   private animationType: TextSpriteAnimation = 'none'
@@ -349,6 +362,16 @@ export class TextSprite extends Phaser.GameObjects.Container {
     return this
   }
 
+  /** 绑定状态源(v0.2 新增):卡片文字随状态源实时变化 */
+  bindState(source: StateTextSource, textMap: Record<string, string>, subtitleMap?: Record<string, string>): this {
+    this.stateSource = source
+    this.stateTextMap = textMap
+    this.stateSubtitleMap = subtitleMap ?? null
+    this.lastStateLabel = source.getStateLabel()
+    this.applyStateLabel(this.lastStateLabel)
+    return this
+  }
+
   // ──────────────────────────────────────────────
   // P2 扩展接口(预留签名,初赛 Demo 不实现)
   // ──────────────────────────────────────────────
@@ -419,11 +442,48 @@ export class TextSprite extends Phaser.GameObjects.Container {
   }
 
   // ──────────────────────────────────────────────
+  // 内部:状态驱动(v0.2)
+  // ──────────────────────────────────────────────
+
+  /** 每帧检查状态变化,变化时更新文字 */
+  private updateStateBinding(): void {
+    if (!this.stateSource || !this.stateTextMap) return
+    const stateLabel = this.stateSource.getStateLabel()
+    if (stateLabel !== this.lastStateLabel) {
+      this.lastStateLabel = stateLabel
+      this.applyStateLabel(stateLabel)
+    }
+  }
+
+  /** 根据状态标识更新卡片文字 */
+  private applyStateLabel(label: string): void {
+    const text = this.stateTextMap![label]
+    if (!text) return
+    this.config.text = text
+    if (this.suffix === '.gif') {
+      this.prepareScrollText()
+    } else {
+      this.mainText.setText(text)
+    }
+    // 副文字同步更新
+    if (this.subtitleText && this.stateSubtitleMap) {
+      const sub = this.stateSubtitleMap[label]
+      if (sub) {
+        this.config.subtitle = sub
+        this.subtitleText.setText(sub)
+      }
+    }
+  }
+
+  // ──────────────────────────────────────────────
   // 内部:update 循环(由场景 update 事件驱动)
   // ──────────────────────────────────────────────
 
   private onSceneUpdate(_time: number, delta: number): void {
     this.animTime += delta
+
+    // 状态驱动:每帧检查状态变化
+    this.updateStateBinding()
 
     // 同步 mask 位置(遮罩在 scene 层级,需跟随容器移动)
     if (this.maskGraphics) {

@@ -20,6 +20,7 @@
 import Phaser from 'phaser'
 import { PHYSICS } from '@/shared/constants'
 import { TextSprite } from '@/game/objects/TextSprite'
+import type { StateTextSource } from '@/shared/types'
 
 /** 玩家状态快照(供场景/UI 读取) */
 export interface PlayerState {
@@ -40,7 +41,7 @@ const CROUCH_SCALE_Y = 0.6
 /** 水平阻力(松手滑行衰减,值越小滑行越远) */
 const DRAG_X = 600
 
-export class Player extends Phaser.GameObjects.Container {
+export class Player extends Phaser.GameObjects.Container implements StateTextSource {
   private sprite: TextSprite
   private body2!: Phaser.Physics.Arcade.Body
 
@@ -124,7 +125,7 @@ export class Player extends Phaser.GameObjects.Container {
   }
 
   /** 获取状态快照 */
-  getState(): PlayerState {
+  getSnapshot(): PlayerState {
     return {
       x: this.x,
       y: this.y,
@@ -137,9 +138,28 @@ export class Player extends Phaser.GameObjects.Container {
     }
   }
 
+  /** StateTextSource 接口:返回当前状态标识 */
+  getStateLabel(): string {
+    if (this.isCrouching) return 'crouch'
+    if (!this.isGrounded) {
+      return this.body2.velocity.y < 0 ? 'jump' : 'fall'
+    }
+    if (Math.abs(this.body2.velocity.x) > 10) return 'run'
+    return 'idle'
+  }
+
   /** 朝向(用于互动检测方向) */
   getFacing(): 'left' | 'right' {
     return this.facing
+  }
+
+  /** 音效回调(可选,由场景注入) */
+  onSfx: ((type: 'jump' | 'doubleJump') => void) | null = null
+
+  /** 将卡片绑定到自身状态(状态驱动):卡片文字随玩家动作实时变化 */
+  bindCardState(textMap: Record<string, string>, subtitleMap?: Record<string, string>): this {
+    this.sprite.bindState(this, textMap, subtitleMap)
+    return this
   }
 
   // ──────────────────────────────────────────────
@@ -190,12 +210,14 @@ export class Player extends Phaser.GameObjects.Container {
         // 一段跳
         this.body2.setVelocityY(PHYSICS.JUMP_VELOCITY)
         this.jumpsRemaining = this.maxJumps - 1
+        this.onSfx?.('jump')
       } else if (this.jumpsRemaining > 0) {
         // 二段跳
         this.body2.setVelocityY(
           PHYSICS.DOUBLE_JUMP_VELOCITY * this.doubleJumpMultiplier
         )
         this.jumpsRemaining--
+        this.onSfx?.('doubleJump')
       }
     }
 
