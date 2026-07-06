@@ -321,25 +321,35 @@ export class TextSprite extends Phaser.GameObjects.Container {
     )
     this.scrollLongText = Array(repeatCount).fill(base).join(SCROLL_SEPARATOR)
     this.scrollCharOffset = 0
+    // .gif 滚动文字:左对齐到卡片内边界,便于像素级 x 偏移实现丝滑滚动
+    this.mainText.setOrigin(0, 0.5)
+    this.mainText.x = -innerWidth / 2
     this.updateScrollDisplay()
   }
 
   private updateScrollDisplay(): void {
     if (!this.scrollLongText) return
     const totalLen = this.scrollLongText.length
-    const intOffset = Math.floor(this.scrollCharOffset) % totalLen
+    // 保留小数部分,实现像素级平滑滚动(而非字符跳动)
+    const offset = ((this.scrollCharOffset % totalLen) + totalLen) % totalLen
+    const intOffset = Math.floor(offset)
+    const frac = offset - intOffset
+    // 多取 1 字符,用 mainText.x 偏移 frac 个字符宽度
     let display = this.scrollLongText.substring(
       intOffset,
-      intOffset + this.scrollDisplayLength
+      intOffset + this.scrollDisplayLength + 1
     )
     // 循环补齐(防止末尾不足)
-    if (display.length < this.scrollDisplayLength) {
+    if (display.length < this.scrollDisplayLength + 1) {
       display += this.scrollLongText.substring(
         0,
-        this.scrollDisplayLength - display.length
+        this.scrollDisplayLength + 1 - display.length
       )
     }
     this.mainText.setText(display)
+    // 像素级偏移:向左移动 frac 个字符宽度,视觉上文字连续滚动
+    const innerWidth = this.cardWidth - this.borderWidth * 2 - 8
+    this.mainText.x = -innerWidth / 2 - frac * this.scrollFontSize
   }
 
   // ──────────────────────────────────────────────

@@ -8,61 +8,203 @@
     "mandarin": "做人如果没有梦想,那跟咸鱼有什么分别?",
     "source": "周星驰《少林足球》"
   },
+  "worldSize": { "width": 2400, "height": 720 },
   "spawn": { "x": 120, "y": 600 },
   "ground": {
-    "position": { "x": 640, "y": 700 },
-    "size": { "width": 1280, "height": 40 },
+    "position": { "x": 1200, "y": 700 },
+    "size": { "width": 2400, "height": 40 },
     "card": { "type": "object", "text": "地板", "suffix": ".jpg" }
   },
   "platforms": [
     {
       "id": "platform_work",
       "type": "static",
-      "position": { "x": 220, "y": 560 },
-      "size": { "width": 200, "height": 20 },
+      "position": { "x": 280, "y": 560 },
+      "size": { "width": 160, "height": 20 },
       "card": { "type": "object", "text": "打工平台", "suffix": ".jpg" }
     },
     {
       "id": "platform_fish",
       "type": "static",
-      "position": { "x": 520, "y": 470 },
-      "size": { "width": 180, "height": 20 },
+      "position": { "x": 520, "y": 500 },
+      "size": { "width": 160, "height": 20 },
       "card": { "type": "object", "text": "咸鱼平台", "suffix": ".jpg" }
+    },
+    {
+      "id": "platform_equal_sign",
+      "type": "static",
+      "position": { "x": 760, "y": 440 },
+      "size": { "width": 120, "height": 20 },
+      "card": { "type": "object", "text": "等号", "suffix": ".jpg" }
     },
     {
       "id": "platform_question",
       "type": "static",
-      "position": { "x": 820, "y": 390 },
-      "size": { "width": 180, "height": 20 },
-      "card": { "type": "object", "text": "问号平台", "suffix": ".jpg" }
+      "position": { "x": 760, "y": 340 },
+      "size": { "width": 100, "height": 20 },
+      "card": { "type": "object", "text": "问号", "suffix": ".jpg", "animation": "shake" }
     },
     {
-      "id": "platform_challenge",
+      "id": "platform_ball",
       "type": "static",
-      "position": { "x": 1100, "y": 300 },
+      "position": { "x": 1000, "y": 460 },
+      "size": { "width": 140, "height": 20 },
+      "card": { "type": "object", "text": "街角", "suffix": ".jpg" }
+    },
+    {
+      "id": "platform_temple_low",
+      "type": "static",
+      "position": { "x": 1240, "y": 480 },
       "size": { "width": 160, "height": 20 },
-      "card": { "type": "object", "text": "挑战平台", "suffix": ".jpg" }
+      "card": { "type": "object", "text": "山路", "suffix": ".jpg" }
+    },
+    {
+      "id": "platform_temple_high",
+      "type": "static",
+      "position": { "x": 1240, "y": 360 },
+      "size": { "width": 160, "height": 20 },
+      "card": { "type": "object", "text": "少林路", "suffix": ".jpg" }
+    },
+    {
+      "id": "platform_star_plaza",
+      "type": "static",
+      "position": { "x": 1500, "y": 560 },
+      "size": { "width": 200, "height": 20 },
+      "card": { "type": "object", "text": "小广场", "suffix": ".jpg" }
+    },
+    {
+      "id": "platform_challenge_1",
+      "type": "static",
+      "position": { "x": 1800, "y": 480 },
+      "size": { "width": 100, "height": 20 },
+      "card": { "type": "object", "text": "砖块1", "suffix": ".jpg" }
+    },
+    {
+      "id": "platform_challenge_2",
+      "type": "static",
+      "position": { "x": 1950, "y": 380 },
+      "size": { "width": 100, "height": 20 },
+      "card": { "type": "object", "text": "砖块2", "suffix": ".jpg" }
+    },
+    {
+      "id": "platform_challenge_3",
+      "type": "static",
+      "position": { "x": 2100, "y": 280 },
+      "size": { "width": 100, "height": 20 },
+      "card": { "type": "object", "text": "砖块3", "suffix": ".jpg" }
+    },
+    {
+      "id": "platform_reveal",
+      "type": "static",
+      "position": { "x": 2250, "y": 200 },
+      "size": { "width": 200, "height": 20 },
+      "card": { "type": "object", "text": "揭示平台", "suffix": ".jpg" }
     }
   ],
   "coins": [
-    { "id": "coin_1", "position": { "x": 220, "y": 520 }, "word": "累", "jyutping": "leoi6" },
-    { "id": "coin_2", "position": { "x": 520, "y": 430 }, "word": "咸", "jyutping": "haam4" },
-    { "id": "coin_3", "position": { "x": 820, "y": 350 }, "word": "梦", "jyutping": "mung6" },
-    { "id": "coin_4", "position": { "x": 1100, "y": 260 }, "word": "想", "jyutping": "soeng2" }
+    { "id": "coin_leoi6", "position": { "x": 280, "y": 520 }, "word": "累", "jyutping": "leoi6" },
+    { "id": "coin_haam4", "position": { "x": 520, "y": 460 }, "word": "咸", "jyutping": "haam4" },
+    { "id": "coin_gung1", "position": { "x": 1240, "y": 320 }, "word": "功", "jyutping": "gung1" },
+    { "id": "coin_mung6", "position": { "x": 1500, "y": 520 }, "word": "梦", "jyutping": "mung6" },
+    { "id": "coin_soeng2", "position": { "x": 2100, "y": 240 }, "word": "想", "jyutping": "soeng2" }
   ],
   "npcs": [
     {
       "id": "npc_oldMan",
       "card": { "type": "character", "text": "老伯", "suffix": ".jpg" },
-      "position": { "x": 100, "y": 660 },
+      "position": { "x": 150, "y": 660 },
       "dialogues": [
-        { "speaker": "老伯", "text": "年轻人,打工要打到什么时候啊?" },
-        { "speaker": "老伯", "text": "咸鱼也是有梦想的...你说是不是?" },
-        { "speaker": "老伯", "text": "跳到最高处去,找到你的答案吧。" }
+        { "speaker": "老伯", "text": "小伙子,看你这样子,刚下班?" },
+        { "speaker": "老伯", "text": "天天加班,感觉自己像条咸鱼?" },
+        { "speaker": "老伯", "text": "前面就有一条咸鱼,去看看吧,也许能找到答案。" }
+      ]
+    },
+    {
+      "id": "npc_star",
+      "card": { "type": "character", "text": "星爷", "suffix": ".jpg" },
+      "position": { "x": 1500, "y": 510 },
+      "dialogues": [
+        { "speaker": "星爷", "text": "年轻人,我看你骨骼精奇,是个练武奇才。" },
+        { "speaker": "星爷", "text": "打工人也可以有梦想啊。" },
+        { "speaker": "星爷", "text": "咸鱼...梦想..." },
+        { "speaker": "星爷", "text": "前面有个挑战,你敢不敢试?完成了,你就明白了。" }
       ]
     }
   ],
-  "revealPosition": { "x": 1100, "y": 260 },
-  "totalCoins": 4,
-  "totalHidden": 0
+  "interactables": [
+    {
+      "id": "int_hanging_fish",
+      "card": {
+        "type": "object", "text": "挂着的咸鱼", "suffix": ".gif",
+        "scrollSpeed": 4, "interactable": true, "interactHint": "按 E 踢一脚"
+      },
+      "position": { "x": 520, "y": 420 },
+      "action": "kick_fish",
+      "revealCoinId": "coin_haam4"
+    },
+    {
+      "id": "int_old_football",
+      "card": {
+        "type": "object", "text": "破旧足球", "suffix": ".jpg",
+        "interactable": true, "interactHint": "按 E 踢一脚",
+        "highlight": true
+      },
+      "position": { "x": 1000, "y": 420 },
+      "action": "trigger_surprise",
+      "surpriseId": "surprise_star_ye"
+    },
+    {
+      "id": "int_challenge_fish",
+      "card": {
+        "type": "object", "text": "挂着的咸鱼", "suffix": ".gif",
+        "scrollSpeed": 5, "interactable": true, "interactHint": "按 E 踢一脚"
+      },
+      "position": { "x": 1950, "y": 340 },
+      "action": "kick_fish"
+    },
+    {
+      "id": "int_old_shoe",
+      "card": {
+        "type": "object", "text": "破旧的足球鞋", "suffix": ".jpg",
+        "interactable": true, "interactHint": "按 E 踢一脚",
+        "animation": "glow"
+      },
+      "position": { "x": 1620, "y": 480 },
+      "action": "hidden_shoe"
+    }
+  ],
+  "surprises": [
+    {
+      "id": "surprise_star_ye",
+      "type": "required",
+      "setup": {
+        "hintCard": {
+          "type": "hint", "text": "高人即将出现...", "suffix": ".jpg",
+          "size": { "width": 320, "height": 60 }
+        },
+        "delayMs": 1500
+      },
+      "reveal": {
+        "characterCard": {
+          "type": "character", "text": "星爷", "suffix": ".gif",
+          "scrollSpeed": 6, "size": { "width": 140, "height": 180 }
+        },
+        "scrollText": "做人如果冇梦想,跟咸鱼有咩分别?"
+      },
+      "interact": {
+        "dialogue": [
+          { "speaker": "星爷", "text": "好一脚!咸鱼翻身,二段跳强化,去挑战吧!" }
+        ],
+        "buff": {
+          "id": "buff_fish翻身",
+          "name": "咸鱼翻身",
+          "description": "二段跳高度+30%,滞空更久",
+          "effect": { "type": "jumpEnhance", "value": 0.3 }
+        }
+      }
+    }
+  ],
+  "revealPosition": { "x": 2250, "y": 160 },
+  "totalCoins": 5,
+  "totalHidden": 1
 }

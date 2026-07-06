@@ -484,6 +484,99 @@ src/
 
 ---
 
+## 2026-07-06 · 阶段3:7 区铺垫链 + 惊喜事件 + Buff 系统
+
+### 决策记录
+
+#### 26. 7 区布局:世界扩展 2400x720 + 相机跟随
+
+**背景**:7 区内容无法塞进 1280x720 单屏,需要更大世界。
+
+**决策**:
+- LevelData 新增 worldSize 字段,第一关 2400x720
+- LevelScene.create 设置 physics.world.setBounds + cameras.main.setBounds
+- cameras.main.startFollow(player, true, 0.1, 0.1) 相机跟随玩家
+- UIScene 所有 UI 元素 setScrollFactor(0) 固定在屏幕
+
+**理由**:相机跟随是平台跳跃游戏标准方案,玩家始终居中,世界在背后滚动。
+
+---
+
+#### 27. 可互动物件:InteractableObject + action 类型 switch
+
+**背景**:7 区有多个可互动物件(咸鱼/足球/破鞋),每个互动效果不同。
+
+**决策**:
+- InteractableObject 继承 TextSprite,加 consumed 标志防重复
+- InteractAction 联合类型:kick_fish / kick_ball / trigger_surprise / hidden_shoe
+- LevelScene.handleInteractableAction switch 分发,具体逻辑写代码(务实扩展原则3)
+- 玩家靠近 update 检测 → emit 'show-interact-hint' → UIScene 显示提示
+
+**理由**:复杂逻辑写代码比硬塞 JSON/DSL 清晰;action 类型可扩展,加新动作只需加 case。
+
+---
+
+#### 28. 惊喜三段式:executeSurprise 串行 delayedCall
+
+**背景**:惊喜事件需要铺垫→揭示→互动三段节奏。
+
+**决策**:
+- executeSurprise(surprise) 串行执行:
+  - 阶段1:emit 'surprise-setup'(UIScene 显示 hintCard + glow 动效)
+  - delayedCall(delayMs) → 阶段2:emit 'surprise-reveal'(角色卡片 + 滚动文字)
+  - delayedCall(2500) → 阶段3:emit 'show-dialog'(对话)+ applyBuff
+- triggeredSurprises Set 防重复触发
+- 物件先 playKickEffect 弹开,再开始三段式
+
+**理由**:delayedCall 串行简单直观,无需复杂状态机;三段式节奏(铺垫3s→揭示2.5s→互动)符合设计文档。
+
+---
+
+#### 29. Buff 系统:setDoubleJump 接口落地
+
+**背景**:Player.setDoubleJump 已预留接口,需在惊喜互动时启用。
+
+**决策**:
+- applyBuff(buff) 根据 effect.type 调用 player.setDoubleJump(true, 1 + value)
+- value=0.3 → multiplier=1.3(二段跳高度+30%)
+- emit 'show-toast' 显示 Buff 获得提示
+- Buff 持续到通关(不主动取消)
+
+**理由**:接口与实现对接,简单直接;Toast 提示让玩家感知变强。
+
+---
+
+### 产出清单(7 区 + 惊喜 + Buff)
+
+✅ types.ts 扩展:InteractAction / InteractableData / BuffData / SurpriseData + LevelData 加入 interactables/surprises/worldSize
+✅ level_01_fish.json 重写:7 区 12 platforms / 5 coins / 2 npcs(老伯+星爷)/ 4 interactables(咸鱼/足球/挑战咸鱼/破鞋)/ 1 surprise(星爷 buff)
+✅ InteractableObject.ts:继承 TextSprite + interact() + playKickEffect() + playFlashHint()
+✅ LevelScene 重写:世界 2400x720 + 相机跟随 + E 互动 switch + 惊喜三段式 + Buff 应用 + update 走远关闭/互动提示
+✅ UIScene 重写:Toast + 互动提示 + surprise-setup/surprise-reveal + setScrollFactor(0) 固定 UI
+✅ typecheck 通过 + 浏览器无报错
+
+### 7 区内容落地
+
+| 区 | 平台 | 金币 | 互动 | 碎片关键词 |
+|----|------|------|------|-----------|
+| 区1 打工 | 打工平台 | 累 | 老伯对话(普通话) | 打工 |
+| 区2 咸鱼 | 咸鱼平台 | 咸 | 踢咸鱼(反向引导) | 咸鱼 |
+| 区3 疑问 | 等号+问号平台 | - | 问号抖动 | = ? |
+| 区4 足球 | 街角平台 | - | 踢足球(闪现黄金右脚) | 少林足球 |
+| 区5 寺庙 | 山路+少林路平台 | 功 | - | 少林 |
+| 区6 星爷 | 小广场平台 | 梦 | 星爷对话(留白)+ 隐藏破鞋(钢铁腿) | 梦想 |
+| 区7 挑战 | 砖块1/2/3 | 想 | 踢挑战咸鱼(触发惊喜+buff) | 挑战 |
+| 揭示 | 揭示平台 | - | 触发句子揭示+发音 | 句子归位 |
+
+### 下一步
+
+阶段3 剩余:
+- ⬜ 收集系统完善 + 通关结算伏笔(P2)
+
+阶段4:全链路联调 + 流畅性优化 + 演示打包
+
+---
+
 ## 模板:迭代记录格式
 
 ```
@@ -510,6 +603,7 @@ src/
 
 | 版本 | 日期 | 变更 |
 |------|------|------|
+| v1.6 | 2026-07-06 | 7区铺垫链+惊喜事件+Buff系统(决策26-29:世界扩展/可互动物件/三段式/setDoubleJump落地) |
 | v1.5 | 2026-07-06 | 阶段3反馈修复(决策23-25:WebSpeech普通话优先/老伯对话改普通话/走开自动关对话) |
 | v1.4 | 2026-07-06 | 阶段3核心系统完成(决策18-22:TextSprite/Player/关卡数据驱动/JyutpingSpeaker) |
 | v1.3 | 2026-07-06 | 阶段2完成:技术骨架搭建(决策14-17,Vue3+Phaser+Pinia 跑通) |
