@@ -4,7 +4,6 @@
  */
 import type { TextSpriteConfig } from '@/game/objects/TextSprite'
 import type { Sentence } from '@/shared/types'
-import type { ChaseSceneConfig } from '@/game/scenes/ChaseScene'
 
 /** 目标句子(粤语 + 粤拼 + 普通话释义) */
 export interface SentenceData {
@@ -137,7 +136,35 @@ export interface LevelData {
   /** 伏笔台词(结算页显示,老伯再次出现埋第二关悬念) */
   epilogue?: { speaker: string; lines: string[] }
   /** 追捕子场景配置(v0.3,数据驱动) */
-  chaseScene?: ChaseSceneConfig
+  chaseScene?: ChaseSceneData
+}
+
+/** 追捕子场景数据(v0.3,定义在 types.ts 避免循环依赖) */
+export interface ChaseSceneData {
+  id: string
+  worldSize: { width: number; height: number }
+  platforms: PlatformData[]
+  playerSpawn: { x: number; y: number }
+  fugitive: {
+    npcId: string
+    card: TextSpriteConfig
+    spawn: { x: number; y: number }
+    fleeSpeed: number
+    patrolPoints: { x: number; y: number }[]
+  }
+  caughtDialogue: DialogueData[]
+  timeLimitMs?: number
+  stateTextMaps?: {
+    player: Record<string, string>
+    fugitive: Record<string, string>
+  }
+  bullet?: {
+    count: number
+    shootRange: number
+    cooldownMs: number
+  }
+  platformBounce?: number
+  onComplete?: Record<string, any>
 }
 
 /** 区域数据(v0.2 新增,关卡可选分区域组织) */

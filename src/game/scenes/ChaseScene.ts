@@ -26,45 +26,11 @@ import type { MovableNpcData } from '@/game/objects/MovableNpc'
 import { Bullet } from '@/game/objects/Bullet'
 import { TextSprite } from '@/game/objects/TextSprite'
 import type { TextSpriteConfig } from '@/game/objects/TextSprite'
-import type { PlatformData, DialogueData } from '@/game/data/types'
+import type { PlatformData, DialogueData, ChaseSceneData } from '@/game/data/types'
 
-/** 追捕子场景配置 */
-export interface ChaseSceneConfig extends SubSceneConfig {
+/** 追捕子场景配置(扩展 SubSceneConfig + ChaseSceneData) */
+export interface ChaseSceneConfig extends SubSceneConfig, ChaseSceneData {
   type: 'chase'
-  /** 小场景世界尺寸 */
-  worldSize: { width: number; height: number }
-  /** 平台布局(阶梯/墙壁) */
-  platforms: PlatformData[]
-  /** 玩家起始位置 */
-  playerSpawn: { x: number; y: number }
-  /** 逃跑 NPC 配置 */
-  fugitive: {
-    npcId: string
-    card: TextSpriteConfig
-    spawn: { x: number; y: number }
-    fleeSpeed: number
-    patrolPoints: { x: number; y: number }[]
-  }
-  /** 抓到后的对话 */
-  caughtDialogue: DialogueData[]
-  /** 限时(可选,超时失败重试) */
-  timeLimitMs?: number
-  /** 状态文字映射(可选) */
-  stateTextMaps?: {
-    player: Record<string, string>
-    fugitive: Record<string, string>
-  }
-  /** 子弹配置(可选) */
-  bullet?: {
-    /** 子弹数量 */
-    count: number
-    /** 射击触发距离 */
-    shootRange: number
-    /** 射击冷却(ms) */
-    cooldownMs: number
-  }
-  /** 平台反弹系数(0=无反弹, 1=完全反弹, 默认 0.6) */
-  platformBounce?: number
 }
 
 export class ChaseScene extends BaseSubScene {
@@ -106,14 +72,10 @@ export class ChaseScene extends BaseSubScene {
       '天台地面'
     )
 
-    // 平台(阶梯块,支持反弹)
+    // 平台(阶梯块)
     const platforms: TextSprite[] = []
-    const bounce = cfg.platformBounce ?? 0.6
     for (const p of cfg.platforms) {
       const plat = this.createPlatform(p.position, p.size, '平台')
-      // 设置平台反弹(影响碰撞它的动态物体)
-      const platBody = plat.body as Phaser.Physics.Arcade.StaticBody
-      platBody.setBounce(bounce, 0)
       platforms.push(plat)
     }
 
@@ -127,7 +89,8 @@ export class ChaseScene extends BaseSubScene {
     // 双倍最大速度
     const playerBody = this.player.body as Phaser.Physics.Arcade.Body
     playerBody.setMaxVelocityX(PHYSICS.PLAYER_SPEED * 2)
-    // 平台反弹(水平反弹,垂直无反弹:避免地面弹跳)
+    // 平台反弹(水平反弹,垂直无反弹:避免地面弹跳;反弹在动态Body上设置)
+    const bounce = cfg.platformBounce ?? 0.6
     playerBody.setBounce(bounce, 0)
     this.physics.add.collider(this.player, [ground, ...platforms])
 

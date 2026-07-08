@@ -515,6 +515,9 @@ export class TextSprite extends Phaser.GameObjects.Container {
   // ──────────────────────────────────────────────
 
   private onSceneUpdate(_time: number, delta: number): void {
+    // 防御:对象已销毁或场景已停止时跳过
+    if (!this.active || !this.mainText?.active) return
+
     this.animTime += delta
 
     // 状态驱动:每帧检查状态变化
