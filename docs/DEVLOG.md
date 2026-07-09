@@ -841,10 +841,67 @@ src/
 
 ---
 
+## 2026-07-09 · 阶段6:慢动作系统 — 起步（从零开始验证）
+
+### 决策记录
+
+#### 50. 从零开始：SlowMoManager + RainManager 独立模块 + 手动测试按钮
+
+**背景**:此前尝试的「子弹时间」方案（子弹系统 + 序列引擎 + 自动触发）测试效果不佳：「子弹慢慢飞」的效果难以控制，追捕结束逻辑出现冲突，且改动面过大导致调试困难。
+
+**决策**:从零开始，采用「分步迭代」策略。
+
+**第一步方案**（当前已完成）:
+- 建立 `SlowMoManager` 独立模块（单例，~130 行）：全局 timeScale 控制 + `performance.now()` 过渡 + `freeze`/`resume`
+- 建立 `RainManager` 独立模块（非单例，~100 行）：60 个 TextSprite 雨滴物理体 + 循环回收
+- 在 ChaseScene 添加 T 键手动切换慢放按钮，验证核心机制
+- 不接入 player/逃跑者逻辑，保持原有追捕代码不变
+
+**分步理由**:
+- 独立模块化：每个模块职责单一，可独立测试和调试
+- 手动触发：先验证核心机制（timeScale 对雨滴的影响），确认无误后再接入自动逻辑
+- 最小改动：仅修改 ChaseScene 3 处（导入 + 初始化 + update），不碰原有逻辑
+- 可回退：git stash 保存了之前的全量改动，随时可恢复参考
+
+**改动范围**:
+- 新建：`src/game/systems/SlowMoManager.ts`（~130 行）
+- 新建：`src/game/systems/RainManager.ts`（~100 行）
+- 修改：`src/game/scenes/ChaseScene.ts`（+3 行导入，+40 行测试代码）
+- 文档：GAME_DESIGN.md v3.2 / TECH_ARCH.md v2.1 / TASKS.md / DEVLOG.md
+
+**测试方式**:
+```
+进入追捕子场景 → 看到下雨 → 按 T 键
+- 按 T: 0.5s 过渡到 20% 速度（雨滴变慢）
+- 再按 T: 0.3s 恢复全速
+- 可反复切换
+```
+
+**已知问题与修复**:
+- `body.reset()` 在 Phaser 3 中会将 `allowGravity` 重置为 `true`，导致雨滴受重力加速。修复：reset 后补设 `allowGravity=false`。
+- **Phaser timeScale 语义反转**：最初误以为 `timeScale=0.2` 是 20% 速度，但 Phaser 源码注释明确 `1.0=正常/2.0=半速/0.5=双倍速`，即有效速度 = 1/timeScale。`timeScale=0.2` 实际是 5x 加速。修复：使用 `timeScale=5.0` 实现 20% 速度。
+- **慢放时雨滴一顿一顿**：timeScale=5.0 时物理有效更新率 = 60/5 = 12Hz，渲染 60fps 下每 5 帧才更新一次位置。修复：等比提升 `physics.world.fps`（`newFps = baseFps × timeScale`），保持有效更新率 ≈ 60Hz。
+- **慢放/恢复切换瞬间顿挫**：`setTimeScale()` 中立即把 fps 跳到目标值，但 timeScale 还在平滑过渡中，导致 fps 与 timeScale 短暂不匹配。修复：fps 调整移到 `update()` 中跟随 timeScale 每帧同步变化。
+- **场景 shutdown 时空指针崩溃**：`destroy()` 在 shutdown 事件中触发时 Phaser 已清理 physics world，访问 `this.scene.physics.world.timeScale` 报 null。修复：添加 `this.scene.physics?.world` 空值防御。
+
+**优化**:
+- 新增 `SLOWMO` 配置块（`constants.ts`）：只需改 `SPEED`（默认 0.2 = 20%）即可测试不同慢放程度，timeScale、fps、界面文字全部自动推导。
+
+**测试结果**:
+- T 键切换慢放正常，全局物体速度同步变化，符合预期
+- 过渡丝滑，无顿挫感
+- 抓捕后正常返回主场景，无黑屏崩溃
+
+**下一步**:
+- 第一步验证通过，进入第二步：设计自动触发逻辑（距离检测 + 空中优先 + 序列引擎）
+
+---
+
 ## 版本历史
 
 | 版本 | 日期 | 变更 |
 |------|------|------|
+| v2.0 | 2026-07-09 | 阶段6起步:慢动作系统从零开始(决策50:SlowMoManager+RainManager+T键测试/分步迭代/5项修复+SLOWMO配置块) |
 | v1.9 | 2026-07-07 | 阶段5文档设计:内容深化方案(决策35-41:状态驱动/子场景/MovableNpc/区域模块化/登台门槛/音效等) |
 | v1.8 | 2026-07-06 | 阶段4优化:圆角卡片+文字裁剪+统一设计Token+场景清理+掉落复活(决策31-34) |
 | v1.7 | 2026-07-06 | 阶段3完成:收集系统+通关结算+伏笔(决策30:三档评价/老伯epilogue/ResultView重写) |

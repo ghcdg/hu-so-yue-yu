@@ -545,10 +545,102 @@ interface BaseSpeaker {
 
 ---
 
-## 十八、版本历史
+## 十八、慢动作系统（v0.4 新增）
+
+### 18.1 设计理念
+
+借鉴电影慢动作效果，通过 `physics.world.timeScale` 控制全局物理速度，配合雨天场景作为视觉载体，实现画面冻结、慢放、恢复等电影级效果。
+
+**分步迭代策略**：
+- **第一步**：建立 SlowMoManager + RainManager 独立模块，通过临时按钮手动切换慢放，验证核心机制
+- **第二步**（后续）：接入追捕/打斗场景，自动触发慢放序列
+
+### 18.2 SlowMoManager
+
+**核心类**：`SlowMoManager`（单例，`src/game/systems/SlowMoManager.ts`，~130 行）
+
+```typescript
+// 单例获取
+const slowMo = SlowMoManager.getInstance()
+
+// 生命周期
+slowMo.init(scene)    // 绑定场景，恢复 timeScale=1.0
+slowMo.destroy()      // 清理，恢复全速
+
+// 全局控制
+slowMo.setTimeScale(5.0, 500)   // 0.5 秒平滑过渡到 20% 速度（1/5=0.2）
+slowMo.freeze(3000)              // 冻结 3 秒（timeScale → 10000，近乎静止）
+slowMo.resume(300)               // 0.3 秒恢复到全速
+
+// 状态查询
+slowMo.getCurrentScale()   // 当前 timeScale
+slowMo.getState()          // 'idle' | 'frozen' | 'transitioning'
+slowMo.isActive()          // 是否在慢放中
+
+// 每帧驱动（必须在场景 update 中调用）
+slowMo.update()
+```
+
+**核心原理**：
+- 全局慢放：操作 `scene.physics.world.timeScale`
+- 真实时间过渡：使用 `performance.now()` 驱动 easeInOutQuad 过渡，避免 timeScale 变慢后过渡也变慢
+- 冻结安全值：timeScale 最大为 10000（近乎静止，不能为 0，会阻塞主循环）
+- 注意：Phaser `timeScale` 语义为 `1.0 = 正常` / `2.0 = 半速` / `5.0 = 1/5 速`，即有效速度 = 1/timeScale
+- 丝滑优化：等比提升 `physics.world.fps`（`newFps = baseFps × timeScale`），保持物理更新率 ≈ 60Hz，避免慢放时物体「一顿一顿」
+
+### 18.3 RainManager
+
+**核心类**：`RainManager`（非单例，`src/game/systems/RainManager.ts`，~100 行）
+
+```typescript
+// 创建雨系统（每场景独立）
+const rain = new RainManager(scene, {
+  count: 60,          // 雨滴数量
+  speed: 400,         // 下落速度(px/s)
+  worldW: 800,        // 世界宽度
+  worldH: 600,        // 世界高度
+  color: '#aaccff',   // 雨滴颜色（可选）
+  dropWidth: 3,       // 雨滴宽度（可选）
+  dropHeight: 12      // 雨滴高度（可选）
+})
+
+// 每帧更新（回收落出屏幕的雨滴）
+rain.update()
+
+// 清理
+rain.destroy()
+```
+
+**实现要点**：
+- 雨滴基于 TextSprite（3x12px 浅蓝卡片，无文字无边框）
+- 物理体驱动下落（`setVelocityY(400)`，`setAllowGravity(false)`）
+- 落出屏幕底部自动回收到顶部随机位置（`body.reset()` + 补设 `allowGravity=false`）
+- 雨滴受 `physics.world.timeScale` 自动控制，慢放时自动变慢
+
+### 18.4 当前测试方式
+
+在 ChaseScene 中按 **T 键** 手动切换慢放：
+- 按 T → 0.5 秒过渡到 20% 速度（雨滴明显变慢）
+- 再按 T → 0.3 秒恢复全速
+- 可反复切换，不阻塞原有追捕逻辑
+
+### 18.5 与现有系统的关系
+
+| 系统 | 慢放时行为 |
+|------|-----------|
+| 物理引擎 | 全局受 `physics.world.timeScale` 控制 |
+| 雨滴 | 自动慢放/冻结（物理体受 timeScale 影响） |
+| 音效 SfxManager | 不受影响（Web Audio 独立） |
+| 发音 SpeakerManager | 不受影响（Web Speech API 独立） |
+| 追捕原有逻辑 | 不受影响（子弹/NPC AI/抓捕独立运行） |
+
+---
+
+## 十九、版本历史
 
 | 版本 | 日期 | 变更 |
 |------|------|------|
+| v3.2 | 2026-07-09 | v0.4 起步:新增 SlowMoManager 慢动作模块/RainManager 雨系统模块/ChaseScene T键测试切换 |
 | v3.1 | 2026-07-06 | v0.3 追捕升级:双倍速度/NPC子弹系统(5发)/多阶梯平台+墙壁反弹/NPC主动跳跃/Bullet类(基础卡片示范) |
 | v3.0 | 2026-07-07 | v0.2 内容深化:新增子场景系统/NPC AI与追捕/区域模块化/状态驱动卡片/音效系统/检查点/镜头特效 |
 | v2.0 | 2026-07-06 | 重写:新增铺垫链/惊喜三段式/伪图卡片系统/buff/反向引导,删除原 emoji 触发式设计 |

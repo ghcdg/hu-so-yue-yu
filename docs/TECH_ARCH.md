@@ -89,7 +89,9 @@ hu-so-yue-yu/
 │   │   │   ├── HintSystem.ts       # 探索指引4层
 │   │   │   ├── ProgressSystem.ts   # 关卡进度
 │   │   │   ├── SfxManager.ts       # 音效管理器（v0.2）
-│   │   │   └── CheckpointSystem.ts # 检查点系统（v0.2）
+│   │   │   ├── CheckpointSystem.ts # 检查点系统（v0.2）
+│   │   │   ├── SlowMoManager.ts    # 慢动作管理器（v0.4 新增）单例
+│   │   │   └── RainManager.ts      # 雨天效果管理器（v0.4 新增）非单例
 │   │   ├── scripts/            # ★关卡定制脚本(定制层)
 │   │   │   ├── BaseLevelScript.ts  # 关卡脚本基类(钩子)
 │   │   │   └── LevelScript_01_fish.ts # 第一关定制逻辑
@@ -415,6 +417,81 @@ class SfxManager {
 
 单例模式，各场景按需调用 `SfxManager.getInstance().play('jump')`。
 
+### 6.7 SlowMoManager（v0.4 新增）
+
+**设计目标**：控制 `physics.world.timeScale` 实现全局慢放/冻结，使用 `performance.now()` 驱动过渡避免「慢放中的慢放」问题。
+
+```typescript
+class SlowMoManager {
+  private static instance: SlowMoManager
+  private scene: Phaser.Scene | null
+  private state: 'idle' | 'frozen' | 'transitioning'
+  private currentScale: number
+
+  static getInstance(): SlowMoManager { ... }
+
+  init(scene: Phaser.Scene): void       // 绑定场景
+  destroy(): void                        // 恢复全速，清理引用
+
+  setTimeScale(target: number, durationMs: number): void  // 平滑过渡
+  freeze(durationMs: number): void                         // 冻结（timeScale → 0.0001）
+  resume(durationMs: number): void                         // 恢复到 1.0
+
+  getCurrentScale(): number
+  getState(): string
+  isActive(): boolean
+
+  update(): void  // 每帧驱动（必须在场景 update 中调用）
+}
+```
+
+**核心原理**：
+- 全局控制：`scene.physics.world.timeScale` —— 所有物理体（Player/NPC/雨滴/子弹）自动受影响
+- 真实时间：`performance.now()` 驱动过渡，`easeInOutQuad` 缓动函数
+- 冻结安全值：`timeScale = 10000`（近乎静止，不能为 0，会阻塞主循环）
+- 单例模式：全局唯一，多个场景切换时通过 `init()`/`destroy()` 绑定/解绑
+- **重要**: Phaser timeScale 语义为 `1.0=正常` / `2.0=半速` / `5.0=1/5速`，即有效速度 = 1/timeScale
+- **丝滑优化**: 等比提升 `physics.world.fps`（`newFps = baseFps × timeScale`），保持物理有效更新率 ≈ 60Hz
+
+**与 Phaser 时间系统关系**：
+- `scene.time.timeScale`：影响 scene.update 频率 + tweens + delayedCall —— 不用于慢放（会导致 update 变慢，陷入死循环）
+- `physics.world.timeScale`：仅影响物理引擎步进 —— **采用此方案**
+
+### 6.8 RainManager（v0.4 新增）
+
+**设计目标**：创建 TextSprite 雨滴对象池，物理体驱动下落，配合 SlowMoManager 实现雨天慢放效果。
+
+```typescript
+class RainManager {
+  private scene: Phaser.Scene
+  private drops: TextSprite[]
+
+  constructor(scene: Phaser.Scene, config: RainConfig)
+
+  update(): void   // 每帧回收落出屏幕的雨滴
+  destroy(): void  // 清理所有雨滴
+}
+
+interface RainConfig {
+  count: number        // 雨滴数量（默认 60）
+  speed: number        // 下落速度 px/s（默认 400）
+  worldW: number       // 世界宽度
+  worldH: number       // 世界高度
+  color?: string       // 雨滴颜色（默认 #aaccff）
+  dropWidth?: number   // 雨滴宽度（默认 3）
+  dropHeight?: number  // 雨滴高度（默认 12）
+}
+```
+
+**实现要点**：
+- 雨滴基于 TextSprite（3x12px 浅蓝卡片，无文字无边框，`setDepth(1)`）
+- 物理体：`setAllowGravity(false)` + `setVelocityY(400)`
+- 回收循环：`y > worldH + 20` → `body.reset()` → 补设 `allowGravity=false` + `setVelocityY(speed)`
+- 非单例：每个场景可独立创建各自的雨系统
+- 慢放联动：雨滴是物理体，`physics.world.timeScale` 变化时自动慢放/冻结
+
+**已知坑**：`body.reset()` 在 Phaser 3 中会将 `allowGravity` 重置为 `true`，必须手动补设。
+
 ---
 
 ## 七、渲染循环与性能
@@ -471,5 +548,6 @@ npm run typecheck   # TypeScript 类型检查
 
 | 版本 | 日期 | 变更 |
 |------|------|------|
+| v2.1 | 2026-07-09 | v0.4 起步:新增 SlowMoManager(6.7)/RainManager(6.8)/目录更新 |
 | v2.0 | 2026-07-07 | v0.2 内容深化:新增子场景(BaseSubScene/ChaseScene)/状态驱动绑定/MovableNpc/SfxManager/检查点/目录更新 |
 | v1.0 | 2026-07-06 | 初版:Vue3+Phaser 分层架构、目录结构、场景设计、TextSprite 要点 |

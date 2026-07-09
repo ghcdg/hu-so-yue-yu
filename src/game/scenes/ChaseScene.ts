@@ -17,7 +17,7 @@
  * 碰到老伯即抓住,触发对话后回传结果。
  */
 import Phaser from 'phaser'
-import { SCENE, COLORS, PHYSICS } from '@/shared/constants'
+import { SCENE, COLORS, PHYSICS, SLOWMO } from '@/shared/constants'
 import { BaseSubScene } from '@/game/scenes/BaseSubScene'
 import type { SubSceneConfig } from '@/game/scenes/BaseSubScene'
 import { Player } from '@/game/objects/Player'
@@ -27,6 +27,8 @@ import { Bullet } from '@/game/objects/Bullet'
 import { TextSprite } from '@/game/objects/TextSprite'
 import type { TextSpriteConfig } from '@/game/objects/TextSprite'
 import type { PlatformData, DialogueData, ChaseSceneData } from '@/game/data/types'
+import { SlowMoManager } from '@/game/systems/SlowMoManager'
+import { RainManager } from '@/game/systems/RainManager'
 
 /** 追捕子场景配置(扩展 SubSceneConfig + ChaseSceneData) */
 export interface ChaseSceneConfig extends SubSceneConfig, ChaseSceneData {
@@ -41,6 +43,11 @@ export class ChaseScene extends BaseSubScene {
   private dialogueIndex = 0
   private dialogueBox: TextSprite | null = null
   private bulletsGroup!: Phaser.GameObjects.Group
+
+  // ── v0.4 测试:慢动作 + 雨系统 ──
+  private rainManager: RainManager | null = null
+  private slowMoActive = false
+  private slowMoStatusText: Phaser.GameObjects.Text | null = null
 
   constructor() {
     super(SCENE.CHASE)
@@ -173,9 +180,50 @@ export class ChaseScene extends BaseSubScene {
     this.input.keyboard!.on('keydown-ESC', () => {
       this.cancel()
     })
+
+    // ── v0.4 测试:慢动作 + 雨系统 ──
+    // 初始化慢动作管理器
+    SlowMoManager.getInstance().init(this)
+
+    // 创建雨系统
+    this.rainManager = new RainManager(this, {
+      count: 60,
+      speed: 400,
+      worldW,
+      worldH
+    })
+
+    // 状态提示文字
+    this.slowMoStatusText = this.add
+      .text(worldW / 2, worldH - 30, '按 T 切换慢放 | 当前: 正常', {
+        fontFamily: 'Arial, "Microsoft YaHei", sans-serif',
+        fontSize: '14px',
+        color: '#ffffff',
+        backgroundColor: 'rgba(0,0,0,0.6)',
+        padding: { x: 10, y: 4 }
+      })
+      .setOrigin(0.5)
+      .setDepth(100)
+
+    // T 键切换慢放
+    this.input.keyboard!.on('keydown-T', () => {
+      this.toggleSlowMo()
+    })
+
+    // 场景关闭时清理
+    this.events.once('shutdown', () => {
+      this.rainManager?.destroy()
+      SlowMoManager.getInstance().destroy()
+    })
   }
 
   update(): void {
+    // v0.4: 慢动作管理器更新(驱动 timeScale 过渡)
+    SlowMoManager.getInstance().update()
+
+    // v0.4: 雨滴回收
+    this.rainManager?.update()
+
     if (!this.player || !this.fugitive || this.caught) return
 
     // 更新 AI
@@ -250,6 +298,24 @@ export class ChaseScene extends BaseSubScene {
       }
     }
     this.input.keyboard!.on('keydown-E', keyHandler)
+  }
+
+  // ── v0.4 测试:慢放切换 ──
+
+  /** 切换慢放状态(T 键触发) */
+  private toggleSlowMo(): void {
+    this.slowMoActive = !this.slowMoActive
+    const slowMo = SlowMoManager.getInstance()
+
+    if (this.slowMoActive) {
+      const timeScale = 1 / SLOWMO.SPEED
+      slowMo.setTimeScale(timeScale, SLOWMO.TRANSITION_IN_MS)
+      const pct = Math.round(SLOWMO.SPEED * 100)
+      this.slowMoStatusText?.setText(`按 T 切换慢放 | 当前: 慢放中 (${pct}%)`)
+    } else {
+      slowMo.resume(SLOWMO.TRANSITION_OUT_MS)
+      this.slowMoStatusText?.setText('按 T 切换慢放 | 当前: 正常')
+    }
   }
 
   /** 创建平台(带物理碰撞) */

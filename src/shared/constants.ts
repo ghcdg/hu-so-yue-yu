@@ -30,6 +30,24 @@ export const PHYSICS = {
   DOUBLE_JUMP_VELOCITY: -480
 } as const
 
+/** 慢动作系统配置（v0.4）
+ *
+ *  只需改 SPEED 即可测试不同慢放程度：
+ *    0.2 = 20% 速度（timeScale = 1/0.2 = 5.0）
+ *    0.1 = 10% 速度（timeScale = 1/0.1 = 10.0）
+ *    0.5 = 50% 速度（timeScale = 1/0.5 = 2.0）
+ *
+ *  fps 自适应由 SlowMoManager 内部自动处理（newFps = baseFps × timeScale），无需手动调整。
+ */
+export const SLOWMO = {
+  /** 慢放速度比例（0~1）：0.2 = 20% 速度 */
+  SPEED: 0.1,
+  /** 进入慢放的过渡时间(ms) */
+  TRANSITION_IN_MS: 500,
+  /** 恢复全速的过渡时间(ms) */
+  TRANSITION_OUT_MS: 300,
+} as const
+
 /** 键盘映射 */
 export const KEYS = {
   LEFT: 'A',

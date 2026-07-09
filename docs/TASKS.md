@@ -134,12 +134,55 @@
 
 ---
 
+## 阶段6:慢动作系统（v0.4）🔄 第一步验证通过
+
+| 状态 | 任务 | 优先级 | 依赖 |
+|------|------|--------|------|
+| ✅ | SlowMoManager 核心模块 | P0 | 阶段5 |
+|   ├─ 单例 + init/destroy 生命周期 | P0 |  |
+|   ├─ 全局 timeScale 控制（physics.world.timeScale） | P0 |  |
+|   ├─ 真实时间驱动过渡（performance.now + easeInOutQuad） | P0 |  |
+|   ├─ freeze/resume 方法 | P0 |  |
+|   ├─ setTimeScale(target, duration) 平滑过渡 | P0 |  |
+|   └─ fps 自适应（newFps = baseFps × timeScale） | P0 |  |
+|   └─ 场景 shutdown 空值防御（physics?.world） | P0 |  |
+| ✅ | RainManager 独立模块 | P0 | 阶段5 |
+|   ├─ TextSprite 雨滴对象池（60 个） | P0 |  |
+|   ├─ 物理体驱动下落（setAllowGravity(false)） | P0 |  |
+|   ├─ 循环回收（y > worldH+20 → body.reset + 补设 allowGravity） | P0 |  |
+|   └─ 非单例，每场景独立 | P0 |  |
+| ✅ | ChaseScene 测试按钮集成 | P0 | SlowMoManager + RainManager |
+|   ├─ SlowMoManager.init() + RainManager 创建 | P0 |  |
+|   ├─ T 键切换慢放（SLOWMO.SPEED 可配置） | P0 |  |
+|   ├─ 状态提示文字（自动显示百分比） | P1 |  |
+|   └─ shutdown 清理 | P0 |  |
+| ✅ | SLOWMO 可配置块（constants.ts） | P1 |  |
+|   └─ 改 SPEED 一个值即可测试不同慢放程度 | P1 |  |
+| ✅ | 调试修复（5 项） | P0 |  |
+|   ├─ timeScale 语义反转（除数非乘数） | P0 |  |
+|   ├─ fps 自适应丝滑（消除顿挫） | P0 |  |
+|   ├─ 过渡 fps 平滑跟随（消除切换顿挫） | P0 |  |
+|   ├─ destroy 空指针防御（场景 shutdown） | P0 |  |
+|   └─ body.reset() 后 allowGravity 补设 | P0 |  |
+| ⬜ | 慢放自动触发（接入追捕逻辑） | P0 | 以上全部 |
+|   ├─ Player 距离检测 + 空中优先策略 | P0 |  |
+|   ├─ 序列引擎（freeze → slowmo → speedup → resume） | P0 |  |
+|   └─ 逃跑者跑远 + 响指特效 | P1 |  |
+| ⬜ | 全链路验证 | P0 | 以上全部 |
+|   ├─ 追捕雨天慢放完整流程测试 | P0 |  |
+|   └─ 慢放不影响主世界恢复 | P0 |  |
+
+**阶段6出口**:慢动作系统可工作，追捕雨天慢放场景可演示。
+
+---
+
 ## 版本里程碑
 
 | 版本 | 对应阶段 | 状态 |
 |------|---------|------|
 | v0.1 初赛 Demo | 阶段1-4 | ✅ 阶段4联调+优化完成,仅剩演示打包部署 |
 | v0.2 内容深化 | 阶段5 | ⬜ 文档设计完成,待实现 |
+| v0.4 慢动作系统 | 阶段6 | 🔄 第一步验证通过，待进入第二步自动触发 |
 | v1.0 复赛版本 | (待规划) | ⬜ |
 
 ---
@@ -148,6 +191,7 @@
 
 | 日期 | 变更 |
 |------|------|
+| 2026-07-09 | 阶段6第一步验证通过:SlowMoManager/RainManager 独立模块完成，T键慢放测试通过，5项bug修复，新增 SLOWMO 可配置块，fps 自适应丝滑，过渡顿挫消除 |
 | 2026-07-07 | 阶段5文档设计:新增内容深化方向(子场景/追捕/状态驱动/区域模块化/音效/检查点/镜头),更新 GAME_DESIGN/TECH_ARCH/DATA_MODEL/LEVEL_DESIGN/DEVLOG |
 | 2026-07-06 | 阶段3核心系统完成:TextSprite/Player/关卡数据驱动/发音引擎(JyutpingSpeaker)|
 | 2026-07-06 | 阶段2完成:Vue3+Phaser+Pinia 项目骨架跑通,通信链路验证 |
