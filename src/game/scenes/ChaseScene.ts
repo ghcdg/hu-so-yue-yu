@@ -85,13 +85,52 @@ export class ChaseScene extends BaseSubScene {
   // ── 方案 C: 预测轨迹常量 ──
   /** 预测帧数(~0.5s, 120Hz 采样) */
   private static readonly PREDICTION_FRAMES = 60
-  /** 预测命中距离阈值(px) — 取所有帧中的最小距离，要求轨迹真正"交汇"
-   *  15px 对水平追逐有效，但对垂直起跳场景（玩家从 AI 下方跳起）过于严格：
-   *  水平偏移导致预测轨迹 minDist 在 25-45px，而实际 body 碰撞距离约 45px。
-   *  提高到 50px 使预测阈值与实际抓捕距离一致。 */
-  private static readonly PREDICTION_THRESHOLD = 50
   /** 物理步进时间(120Hz 采样, 提高精度) */
   private static readonly PHYSICS_DT = 1 / 120
+
+  /** 子弹时间门控阈值（以 collisionDist 为基准的比例系数）
+   *
+   *  collisionDist = playerHalfW + AIHalfW + 5（当前 ~45px）
+   *  调整角色大小后，所有像素阈值自动按比例缩放。
+   *
+   *  不可缩放参数（因依赖物理/几何特性，非碰撞距离）：
+   *  - L5_RATIO / L8_RATIO: 长宽比（判断对角接近），与角色大小无关
+   *  - L7_VY: AI 下落速度阈值，取决于 PHYSICS.GRAVITY，重力变则需重调
+   */
+  private static readonly BT = {
+    // ── 预测阈值 ──
+    PREDICTION_MULT: 1.1,    // 预测最小距离阈值（collisionDist × 1.1 ≈ 50px）
+
+    // ── 距离门控（L1-L4） ──
+    L1_DIST: 2.2,            // 斜线贴近（100px）
+    L2_DX: 1.8,              // 横向贴近 dx（80px）
+    L2_DY: 2.2,              // 横向贴近 dy（100px）
+    L3_DY: 1.8,              // 纵向贴近 dy（80px）
+    L3_DX: 2.2,              // 纵向贴近 dx（100px）
+    L4_MARGIN: 10,           // 兜底保险固定余量（px）
+
+    // ── 预测门控（L5/L6） ──
+    L5_MINDIST: 0.33,        // 高置信度 minDist（15px）
+    L5_DIST: 4.0,            // 高置信度 dist（180px）
+    L5_RATIO: 3,             // 长宽比阈值（非对角接近）
+    L6_MINDIST: 0.18,        // 极小 minDist（8px）
+    L6_DIST: 4.0,            // 极小 dist（180px）
+
+    // ── AI 下落（L7） ──
+    L7_VY: 300,              // AI 下落速度阈值（依赖 PHYSICS.GRAVITY，不可缩放）
+    L7_DIST: 3.3,            // 下落距离（150px）
+    L7_DX: 1.3,              // 下落水平偏移（60px）
+
+    // ── 边缘贴近（L8） ──
+    L8_EDGEDIST: 0.55,       // 边缘距离（25px）
+    L8_MINDIST: 0.18,        // 极小 minDist（8px）
+    L8_DIST: 4.4,            // 边缘距离（200px）
+    L8_RATIO: 3,             // 长宽比阈值（非对角接近）
+
+    // ── 视线检测容差 ──
+    LOS_PLATFORM: 0.33,      // 平台顶部对齐容差（15px）
+    LOS_PROXIMITY: 0.55,     // NPC 周边安全距离（25px）
+  } as const
 
   constructor() {
     super(SCENE.CHASE)
@@ -364,12 +403,10 @@ export class ChaseScene extends BaseSubScene {
   // ── v0.4 测试:慢放切换 ──
 
   /** 多维度距离门控 + 分级触发
-   *  预测轨迹判断"是否在交汇路径上"，多维度距离决定"何时触发"：
-   *  L1 斜线贴近(dist<100) / L2 横向贴近(dx<80,dy<100) / L3 纵向贴近(dy<80,dx<100)
-   *  L4 兜底保险(碰撞距离+10px) — 必定闪现救场
-   *  L5 高置信度预测(minDist<15,dist<180,ratio>3) — 非对角接近
-   *  L6 极近交汇(minDist<8,dist<220) — 不限长宽比
-   *  L7 AI急速下落(vy>300,dist<180,dx<60) — 预测不可靠场景 */
+   *  所有像素阈值基于 collisionDist 动态计算，角色大小变化后自动缩放。
+   *  L1 斜线贴近 / L2 横向贴近 / L3 纵向贴近 — 纯距离门控
+   *  L4 兜底保险 — 必定闪现救场
+   *  L5/L6/L7/L8 — 基于预测的触发（轨迹不穿过障碍物时可用） */
   private checkBulletTimeTrigger(): void {
     if (this.bulletTimeTriggered) return
 
@@ -383,14 +420,16 @@ export class ChaseScene extends BaseSubScene {
     const isAirborne = !playerBody.blocked.down && !playerBody.touching.down
     const los = this.hasClearLineOfSight()
 
-    // 碰撞距离(body半宽和 + 5px容差)
-    const collisionDist = (playerBody.halfWidth + fugitiveBody.halfWidth) + 5
+    // 碰撞距离(body半宽和 + 5px容差) — 所有像素阈值的基准
+    const cd = (playerBody.halfWidth + fugitiveBody.halfWidth) + 5
+    const BT = ChaseScene.BT
 
     // ═══════════════════════════════
     // L4: 兜底保险 — 极限距离必定触发(闪现救场)
     // ═══════════════════════════════
-    if (dist < collisionDist + 10 && los) {
-      console.log(`[BT] L4-TRIGGER dist=${dist.toFixed(0)} dx=${dx.toFixed(0)} dy=${dy.toFixed(0)} isAir=${isAirborne ? 1 : 0} los=1 collisionDist=${collisionDist.toFixed(0)}`)
+    const l4Dist = cd + BT.L4_MARGIN
+    if (dist < l4Dist && los) {
+      console.log(`[BT] L4-TRIGGER dist=${dist.toFixed(0)} dx=${dx.toFixed(0)} dy=${dy.toFixed(0)} isAir=${isAirborne ? 1 : 0} los=1 cd=${cd.toFixed(0)} l4Dist=${l4Dist.toFixed(0)}`)
       this.triggerBulletTime()
       return
     }
@@ -403,50 +442,59 @@ export class ChaseScene extends BaseSubScene {
     }
 
     const pred = this.predictiveTrajectoryCheck()
-    if (pred.minDist >= ChaseScene.PREDICTION_THRESHOLD) {
-      console.log(`[BT] SKIP dist=${dist.toFixed(0)} dx=${dx.toFixed(0)} dy=${dy.toFixed(0)} isAir=1 los=1 minDist=${pred.minDist.toFixed(1)} (>= ${ChaseScene.PREDICTION_THRESHOLD})`)
+    const predictionThreshold = cd * BT.PREDICTION_MULT
+    if (pred.minDist >= predictionThreshold) {
+      console.log(`[BT] SKIP dist=${dist.toFixed(0)} dx=${dx.toFixed(0)} dy=${dy.toFixed(0)} isAir=1 los=1 minDist=${pred.minDist.toFixed(1)} (>= ${predictionThreshold.toFixed(1)})`)
       return
     }
 
     // ═══════════════════════════════
+    // 障碍物检测: 检查预测轨迹是否穿过平台
+    // 穿过 → 预测不可靠(AI 会被平台截停)，跳过 L5/L6/L7/L8，仅保留 L1-L4 纯距离触发
+    // ═══════════════════════════════
+    const trajectoryHitsObstacle = this.doesPredictedTrajectoryHitObstacle()
+    if (trajectoryHitsObstacle) {
+      console.log(`[BT] OBSTACLE-HIT dist=${dist.toFixed(0)} dx=${dx.toFixed(0)} dy=${dy.toFixed(0)} isAir=1 los=1 ` +
+        `minDist=${pred.minDist.toFixed(1)} — prediction unreliable, fallback to L1-L4 only`)
+    }
+
+    // ═══════════════════════════════
     // 多维度距离门控: 预测交汇 + 当前距离贴近
-    // L2/L3 双向约束：主导维度贴近 + 另一维度也必须在合理范围内
-    // L5 高置信度预测(minDist<15,dist<180) + 非对角接近(长宽比>3)
-    // L6 极小 minDist(<8,dist<180) → 不限长宽比
-    // L7 AI急速下落(vy>300,dist<150,dx<60) → 预测不可靠，用当前距离判断
-    // L8 垂直/水平边缘贴近(edgeDist<25,minDist<8,dist<200,长宽比>3) → 非对角场景专用
+    // L1-L4: 纯距离门控(不依赖预测，始终可用)
+    // L5/L6/L7/L8: 基于预测的触发(仅在轨迹不穿过障碍物时可用)
     // ═══════════════════════════════
     let level = 0
-    if (dist < 100) {
+    if (dist < cd * BT.L1_DIST) {
       level = 1 // 斜线贴近(综合距离最近)
-    } else if (dx < 80 && dy < 100) {
-      level = 2 // 横向贴近 + 垂直不乱(最大 dist≈128)
-    } else if (dy < 80 && dx < 100) {
-      level = 3 // 纵向贴近 + 水平不乱(最大 dist≈128)
-    } else if (pred.minDist < 15 && dist < 180) {
-      // 高置信度预测 + 非对角接近: 放宽到 180px
-      const aspectRatio = Math.max(dx, dy) / Math.max(Math.min(dx, dy), 1)
-      if (aspectRatio > 3) {
-        level = 5 // 高置信度非对角接近
+    } else if (dx < cd * BT.L2_DX && dy < cd * BT.L2_DY) {
+      level = 2 // 横向贴近 + 垂直不乱
+    } else if (dy < cd * BT.L3_DY && dx < cd * BT.L3_DX) {
+      level = 3 // 纵向贴近 + 水平不乱
+    }
+
+    // ── 基于预测的触发(仅轨迹不穿过障碍物时) ──
+    if (!trajectoryHitsObstacle) {
+      if (level === 0 && pred.minDist < cd * BT.L5_MINDIST && dist < cd * BT.L5_DIST) {
+        // L5: 高置信度预测 + 非对角接近
+        const aspectRatio = Math.max(dx, dy) / Math.max(Math.min(dx, dy), 1)
+        if (aspectRatio > BT.L5_RATIO) {
+          level = 5
+        }
       }
-    } else if (pred.minDist < 8 && dist < 180) {
-      // 预测几乎确定交汇(8px内): 收紧到 180px，避免视觉上太远触发
-      level = 6
-    }
-
-    // L7: AI 急速下落 — 轨迹预测不可靠(会被平台截停)
-    // 当 AI 正在自由落体时，pred.minDist 会偏高，因为预测未考虑平台碰撞
-    // 此时依靠当前距离和水平距离判断
-    if (level === 0 && fugitiveBody.velocity.y > 300 && dist < 150 && dx < 60) {
-      level = 7
-    }
-
-    // L8: 垂直/水平边缘贴近 — 非对角接近场景专用
-    // 对角场景(长宽比≈1)即使边缘预测重叠，视觉上仍很远，必须加方向约束
-    if (level === 0 && pred.verticalEdgeDist < 25 && pred.minDist < 8 && dist < 200) {
-      const aspectRatio = Math.max(dx, dy) / Math.max(Math.min(dx, dy), 1)
-      if (aspectRatio > 3) {
-        level = 8
+      if (level === 0 && pred.minDist < cd * BT.L6_MINDIST && dist < cd * BT.L6_DIST) {
+        // L6: 预测几乎确定交汇
+        level = 6
+      }
+      if (level === 0 && fugitiveBody.velocity.y > BT.L7_VY && dist < cd * BT.L7_DIST && dx < cd * BT.L7_DX) {
+        // L7: AI 急速下落 — 预测不可靠时用当前距离判断
+        level = 7
+      }
+      if (level === 0 && pred.verticalEdgeDist < cd * BT.L8_EDGEDIST && pred.minDist < cd * BT.L8_MINDIST && dist < cd * BT.L8_DIST) {
+        // L8: 垂直/水平边缘贴近 — 非对角接近场景专用
+        const aspectRatio = Math.max(dx, dy) / Math.max(Math.min(dx, dy), 1)
+        if (aspectRatio > BT.L8_RATIO) {
+          level = 8
+        }
       }
     }
 
@@ -534,13 +582,74 @@ export class ChaseScene extends BaseSubScene {
     }
   }
 
+  /** 检查预测轨迹是否穿过任何障碍物（平台）
+   *  在预测的 60 帧中逐段检测 AI 预测位置是否穿过障碍物边界。
+   *  如果穿过，说明预测不可靠（AI 会被平台截停），应跳过基于预测的触发（L5/L6/L7/L8）。
+   *  跳过 NPC 当前所在平台（与 hasClearLineOfSight 一致）。 */
+  private doesPredictedTrajectoryHitObstacle(): boolean {
+    const fugitiveBody = this.fugitive.body as Phaser.Physics.Arcade.Body
+
+    const fx = this.fugitive.x
+    const fy = this.fugitive.y
+    const fvx = fugitiveBody.velocity.x
+    const fvy = fugitiveBody.velocity.y
+
+    const dt = ChaseScene.PHYSICS_DT
+    const g = PHYSICS.GRAVITY
+    const aiOnGround = fugitiveBody.blocked.down
+
+    // 跳过 NPC 当前所在平台（与 hasClearLineOfSight 一致）
+    const npcBottom = this.fugitive.y + fugitiveBody.halfHeight
+    const skipPlatforms = new Set<Phaser.Physics.Arcade.Sprite>()
+    for (const obs of this.obstacles) {
+      if (!obs.body) continue
+      const bounds = (obs.body as Phaser.Physics.Arcade.Body).getBounds(
+        new Phaser.Geom.Rectangle()
+      )
+      if (
+        Math.abs(bounds.top - npcBottom) < 15 &&
+        this.fugitive.x >= bounds.x &&
+        this.fugitive.x <= bounds.right
+      ) {
+        skipPlatforms.add(obs)
+      }
+    }
+
+    let prevX = fx
+    let prevY = fy
+
+    for (let i = 1; i <= ChaseScene.PREDICTION_FRAMES; i++) {
+      const t = i * dt
+      const predFx = fx + fvx * t
+      const predFy = aiOnGround ? fy + fvy * t : fy + fvy * t + 0.5 * g * t * t
+
+      const segment = new Phaser.Geom.Line(prevX, prevY, predFx, predFy)
+
+      for (const obs of this.obstacles) {
+        if (skipPlatforms.has(obs)) continue
+        if (!obs.body) continue
+        const bounds = (obs.body as Phaser.Physics.Arcade.Body).getBounds(
+          new Phaser.Geom.Rectangle()
+        )
+
+        if (Phaser.Geom.Intersects.LineToRectangle(segment, bounds)) {
+          return true
+        }
+      }
+
+      prevX = predFx
+      prevY = predFy
+    }
+
+    return false
+  }
+
   /** 检查玩家→逃跑者之间是否有障碍物阻挡视线（身体中心连线）
    *  跳过三类障碍物：
    *  1. NPC 脚下平台（障碍物顶部对齐 NPC 底部，且 NPC 在水平范围内）
    *  2. 玩家脚下平台（障碍物顶部对齐玩家底部，且玩家在水平范围内）
-   *  3. NPC 周围 25px 内的障碍物（保守兜底）
-   *  额外规则：玩家在 NPC 下方时，如果连线穿过任何平台，视为阻挡
-   *  （防止玩家从平台上方掉落经过平台边缘时误触发） */
+   *  3. NPC 周围安全距离内的障碍物（保守兜底）
+   *  容差基于 collisionDist 动态缩放，角色大小变化后自动适应。 */
   private hasClearLineOfSight(): boolean {
     const line = new Phaser.Geom.Line(
       this.player.x, this.player.y,
@@ -552,33 +661,37 @@ export class ChaseScene extends BaseSubScene {
     const playerBody = this.player.body as Phaser.Physics.Arcade.Body
     const playerBottom = this.player.y + playerBody.halfHeight
 
+    const cd = (playerBody.halfWidth + fugitiveBody.halfWidth) + 5
+    const BT = ChaseScene.BT
+    const platformAlign = cd * BT.LOS_PLATFORM   // 平台顶部对齐容差
+    const proximity = cd * BT.LOS_PROXIMITY       // NPC 周边安全距离
+
     for (const obs of this.obstacles) {
       if (!obs.body) continue
       const bounds = (obs.body as Phaser.Physics.Arcade.Body).getBounds(
         new Phaser.Geom.Rectangle()
       )
 
-      // 规则1: 跳过 NPC 脚下平台 — 障碍物顶部对齐 NPC 底部(15px容差) 且 NPC 在水平范围内
+      // 规则1: 跳过 NPC 脚下平台 — 障碍物顶部对齐 NPC 底部 且 NPC 在水平范围内
       const npcOnThisPlatform =
-        Math.abs(bounds.top - npcBottom) < 15 &&
+        Math.abs(bounds.top - npcBottom) < platformAlign &&
         this.fugitive.x >= bounds.x &&
         this.fugitive.x <= bounds.right
       if (npcOnThisPlatform) continue
 
-      // 规则2: 跳过玩家脚下平台 — 障碍物顶部对齐玩家底部(15px容差) 且玩家在水平范围内
+      // 规则2: 跳过玩家脚下平台 — 障碍物顶部对齐玩家底部 且玩家在水平范围内
       const playerOnThisPlatform =
-        Math.abs(bounds.top - playerBottom) < 15 &&
+        Math.abs(bounds.top - playerBottom) < platformAlign &&
         this.player.x >= bounds.x &&
         this.player.x <= bounds.right
       if (playerOnThisPlatform) continue
 
-      // 规则3: 跳过 NPC 周围 25px 内的障碍物(保守兜底)
-      const margin = 25
+      // 规则3: 跳过 NPC 周围安全距离内的障碍物(保守兜底)
       if (
-        this.fugitive.x >= bounds.x - margin &&
-        this.fugitive.x <= bounds.right + margin &&
-        this.fugitive.y >= bounds.y - margin &&
-        this.fugitive.y <= bounds.bottom + margin
+        this.fugitive.x >= bounds.x - proximity &&
+        this.fugitive.x <= bounds.right + proximity &&
+        this.fugitive.y >= bounds.y - proximity &&
+        this.fugitive.y <= bounds.bottom + proximity
       ) {
         continue
       }
@@ -685,8 +798,11 @@ export class ChaseScene extends BaseSubScene {
     })
   }
 
-  /** 绘制 AI 逃跑者预测轨迹(调试可视化)
-   *  在子弹时间触发时调用，画出从 AI 当前位置到预测交汇点的虚线弧线+箭头 */
+  /** 绘制预测轨迹(调试可视化)
+   *  在子弹时间触发时调用，画出：
+   *  - AI 逃跑者: 橙色虚线轨迹 + 箭头 + 起点圆点
+   *  - Player: 绿色虚线轨迹 + 箭头 + 起点圆点
+   *  帮助玩家理解场景中即将发生的交汇。 */
   private drawPredictionTrajectory(): void {
     const pred = this.lastPrediction
     if (!pred) return
@@ -694,7 +810,14 @@ export class ChaseScene extends BaseSubScene {
     this.predictionGfx = this.add.graphics()
     this.predictionGfx.setDepth(150)
 
+    const playerBody = this.player.body as Phaser.Physics.Arcade.Body
     const fugitiveBody = this.fugitive.body as Phaser.Physics.Arcade.Body
+
+    const px = this.player.x
+    const py = this.player.y
+    const pvx = playerBody.velocity.x
+    const pvy = playerBody.velocity.y
+
     const fx = this.fugitive.x
     const fy = this.fugitive.y
     const fvx = fugitiveBody.velocity.x
@@ -704,13 +827,17 @@ export class ChaseScene extends BaseSubScene {
     const dt = ChaseScene.PHYSICS_DT
     const g = PHYSICS.GRAVITY
     const frames = Math.min(pred.minDistFrame, ChaseScene.PREDICTION_FRAMES)
+    const dashLen = 2 // 每 2 帧画一段虚线
+    const arrowLen = 12
+    const arrowAngle = Math.PI / 6 // 30°
 
-    // ── 虚线轨迹: 从 AI 当前位置到预测交汇点 ──
+    // ────────────────────────────────────
+    // AI 逃跑者轨迹（橙色虚线）
+    // ────────────────────────────────────
     this.predictionGfx.lineStyle(2, 0xffaa00, 0.7)
 
     let prevX = fx
     let prevY = fy
-    const dashLen = 2 // 每 2 帧画一段虚线
 
     for (let i = dashLen; i <= frames; i += dashLen) {
       const t = i * dt
@@ -726,37 +853,85 @@ export class ChaseScene extends BaseSubScene {
       prevY = predFy
     }
 
-    // ── 箭头: 在预测终点画 V 形箭头指向运动方向 ──
-    const endX = pred.predFx
-    const endY = pred.predFy
-    const endT = frames * dt
-    const endVy = aiOnGround ? fvy : fvy + g * endT
-    const angle = Math.atan2(endVy, fvx)
-
-    const arrowLen = 12
-    const arrowAngle = Math.PI / 6 // 30°
+    // AI 箭头
+    const fEndX = pred.predFx
+    const fEndY = pred.predFy
+    const fEndT = frames * dt
+    const fEndVy = aiOnGround ? fvy : fvy + g * fEndT
+    const fAngle = Math.atan2(fEndVy, fvx)
 
     this.predictionGfx.lineStyle(2.5, 0xffaa00, 0.9)
 
     this.predictionGfx.beginPath()
-    this.predictionGfx.moveTo(endX, endY)
+    this.predictionGfx.moveTo(fEndX, fEndY)
     this.predictionGfx.lineTo(
-      endX - arrowLen * Math.cos(angle - arrowAngle),
-      endY - arrowLen * Math.sin(angle - arrowAngle)
+      fEndX - arrowLen * Math.cos(fAngle - arrowAngle),
+      fEndY - arrowLen * Math.sin(fAngle - arrowAngle)
     )
     this.predictionGfx.strokePath()
 
     this.predictionGfx.beginPath()
-    this.predictionGfx.moveTo(endX, endY)
+    this.predictionGfx.moveTo(fEndX, fEndY)
     this.predictionGfx.lineTo(
-      endX - arrowLen * Math.cos(angle + arrowAngle),
-      endY - arrowLen * Math.sin(angle + arrowAngle)
+      fEndX - arrowLen * Math.cos(fAngle + arrowAngle),
+      fEndY - arrowLen * Math.sin(fAngle + arrowAngle)
     )
     this.predictionGfx.strokePath()
 
-    // ── 起点小圆点标记 AI 当前位置 ──
+    // AI 起点圆点
     this.predictionGfx.fillStyle(0xffaa00, 0.8)
     this.predictionGfx.fillCircle(fx, fy, 4)
+
+    // ────────────────────────────────────
+    // Player 轨迹（绿色虚线）— 抛物线
+    // ────────────────────────────────────
+    this.predictionGfx.lineStyle(2, 0x00ff88, 0.7)
+
+    let prevPx = px
+    let prevPy = py
+
+    for (let i = dashLen; i <= frames; i += dashLen) {
+      const t = i * dt
+      const predPx = px + pvx * t
+      const predPy = py + pvy * t + 0.5 * g * t * t
+
+      this.predictionGfx.beginPath()
+      this.predictionGfx.moveTo(prevPx, prevPy)
+      this.predictionGfx.lineTo(predPx, predPy)
+      this.predictionGfx.strokePath()
+
+      prevPx = predPx
+      prevPy = predPy
+    }
+
+    // Player 箭头
+    const pEndX = pred.predPx
+    const pEndY = pred.predPy
+    const pEndT = frames * dt
+    const pEndVy = pvy + g * pEndT
+    const pAngle = Math.atan2(pEndVy, pvx)
+
+    this.predictionGfx.lineStyle(2.5, 0x00ff88, 0.9)
+
+    this.predictionGfx.beginPath()
+    this.predictionGfx.moveTo(pEndX, pEndY)
+    this.predictionGfx.lineTo(
+      pEndX - arrowLen * Math.cos(pAngle - arrowAngle),
+      pEndY - arrowLen * Math.sin(pAngle - arrowAngle)
+    )
+    this.predictionGfx.strokePath()
+
+    this.predictionGfx.beginPath()
+    this.predictionGfx.moveTo(pEndX, pEndY)
+    this.predictionGfx.lineTo(
+      pEndX - arrowLen * Math.cos(pAngle + arrowAngle),
+      pEndY - arrowLen * Math.sin(pAngle + arrowAngle)
+    )
+    this.predictionGfx.strokePath()
+
+    // Player 起点圆点
+    this.predictionGfx.fillStyle(0x00ff88, 0.8)
+    this.predictionGfx.fillCircle(px, py, 4)
   }
 
   /** 显示冻结倒计时(0.9 → 0.1, 每 100ms 更新) */
