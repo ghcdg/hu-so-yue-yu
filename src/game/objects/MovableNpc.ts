@@ -20,6 +20,8 @@ import Phaser from 'phaser'
 import { Npc } from '@/game/objects/Npc'
 import type { NpcData } from '@/game/data/types'
 import type { StateTextSource } from '@/shared/types'
+import { SlowMoManager } from '@/game/systems/SlowMoManager'
+import { PHYSICS } from '@/shared/constants'
 
 /** MovableNpc 扩展数据 */
 export interface MovableNpcData extends NpcData {
@@ -54,6 +56,9 @@ export class MovableNpc extends Npc implements StateTextSource {
 
   /** 被抓到时触发(场景监听) */
   onCaught: (() => void) | null = null
+
+  /** 冻结标志: 子弹时间冻结期间跳过 AI 速度补偿, 防止 velocity 爆炸 */
+  frozen = false
 
   // ── 子弹系统 ──
   private bulletsRemaining: number
@@ -117,6 +122,8 @@ export class MovableNpc extends Npc implements StateTextSource {
    */
   updateAI(playerX: number, playerY: number): void {
     if (this.aiState === 'caught') return
+    // 冻结期间跳过: 防止 AI 以 ×10000 倍速写入 velocity
+    if (this.frozen) return
 
     const dist = Phaser.Math.Distance.Between(this.x, this.y, playerX, playerY)
 
@@ -155,8 +162,15 @@ export class MovableNpc extends Npc implements StateTextSource {
     }
   }
 
+  /** 获取慢放速度补偿系数：正常速度返回 1.0，慢放中返回 timeScale（如 10.0） */
+  private getSlowMoMultiplier(): number {
+    const slowMo = SlowMoManager.getInstance()
+    return slowMo.isActive() ? slowMo.getCurrentScale() : 1.0
+  }
+
   /** 巡逻:在 patrolPoints 间移动 */
   private patrolBehavior(): void {
+    const scale = this.getSlowMoMultiplier()
     const target = this.patrolPoints[this.patrolIndex]
     const dx = target.x - this.x
     if (Math.abs(dx) < 10) {
@@ -164,27 +178,28 @@ export class MovableNpc extends Npc implements StateTextSource {
       this.body2.setVelocityX(0)
       this.patrolIndex = (this.patrolIndex + 1) % this.patrolPoints.length
     } else {
-      this.body2.setVelocityX(Math.sign(dx) * this.fleeSpeed * 0.5)
+      this.body2.setVelocityX(Math.sign(dx) * this.fleeSpeed * 0.5 * scale)
     }
   }
 
   /** 逃跑:远离玩家方向,遇到障碍/玩家在上方时主动跳跃 */
   fleeBehavior(playerX: number, playerY: number): void {
+    const scale = this.getSlowMoMultiplier()
     const dx = this.x - playerX
     const dy = this.y - playerY
     const dist = Math.sqrt(dx * dx + dy * dy) || 1
-    // 水平逃跑(远离玩家)
+    // 水平逃跑(远离玩家)，慢放时速度补偿
     this.body2.setVelocityX(
-      (dx / dist) * this.fleeSpeed
+      (dx / dist) * this.fleeSpeed * scale
     )
     // 主动跳跃:玩家在上方(高于 NPC 50px 以上)且 NPC 着地 → 跳
     const grounded = this.body2.blocked.down || this.body2.touching.down
     if (grounded && dy > 50) {
-      this.body2.setVelocityY(-480)
+      this.body2.setVelocityY(-480 * scale)
     }
     // 遇到障碍时尝试跳跃
     if (this.body2.blocked.left || this.body2.blocked.right) {
-      this.body2.setVelocityY(-420)
+      this.body2.setVelocityY(-420 * scale)
     }
   }
 
@@ -202,6 +217,20 @@ export class MovableNpc extends Npc implements StateTextSource {
   private onAIUpdate = (_time: number, delta: number): void => {
     // 被抓状态不做任何事
     if (this.aiState === 'caught') return
+    // 冻结期间跳过: timeScale=10000 时补偿爆炸, 导致解冻后物体会飞走
+    if (this.frozen) return
+
+    // 慢放重力补偿：physics.world.timeScale 同时削减了重力加速度和位移，
+    // 需同时补偿速度项和位移项，完整公式: C = GRAVITY × Δt × (scale - 1/scale)
+    const slowMo = SlowMoManager.getInstance()
+    if (slowMo.isActive()) {
+      const scale = slowMo.getCurrentScale()
+      const deltaSec = delta / 1000
+      // 补偿量 = 速度修正 + 位移修正，经推导得 scale - 1/scale
+      const compensation = PHYSICS.GRAVITY * deltaSec * (scale - 1 / scale)
+      this.body2.velocity.y += compensation
+    }
+
     // 射击冷却递减
     if (this.shootTimer > 0) {
       this.shootTimer -= delta

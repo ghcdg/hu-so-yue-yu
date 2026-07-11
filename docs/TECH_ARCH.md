@@ -434,7 +434,7 @@ class SlowMoManager {
   destroy(): void                        // 恢复全速，清理引用
 
   setTimeScale(target: number, durationMs: number): void  // 平滑过渡
-  freeze(durationMs: number): void                         // 冻结（timeScale → 0.0001）
+  freeze(durationMs: number): void                         // 冻结（timeScale → 10000）
   resume(durationMs: number): void                         // 恢复到 1.0
 
   getCurrentScale(): number
@@ -456,6 +456,52 @@ class SlowMoManager {
 **与 Phaser 时间系统关系**：
 - `scene.time.timeScale`：影响 scene.update 频率 + tweens + delayedCall —— 不用于慢放（会导致 update 变慢，陷入死循环）
 - `physics.world.timeScale`：仅影响物理引擎步进 —— **采用此方案**
+
+### 6.7b 子弹时间自动触发（ChaseScene，v0.4 新增）
+
+**设计目标**：在追捕场景中，当玩家跳跃接近逃跑者时自动触发慢动作序列，实现「子弹时间」电影级效果。
+
+**两段式序列**：
+```
+触发 → 冻结1s(NPC闪现逃逸+0.9→0.1倒计时) → 慢放3s(20%速度) → 恢复全速
+```
+
+**多维度距离门控（L1-L8）**：
+
+| 级别 | 条件 | 距离上限 | 说明 |
+|------|------|---------|------|
+| L1 | `dist < 100` | 100px | 斜线贴近 |
+| L2 | `dx < 80 && dy < 100` | ~128px | 横向贴近 |
+| L3 | `dy < 80 && dx < 100` | ~128px | 纵向贴近 |
+| L4 | `dist < collisionDist+10` | ~55px | 兜底保险 |
+| L5 | `minDist < 15 && dist < 180 && ratio > 3` | 180px | 高置信度非对角 |
+| L6 | `minDist < 8 && dist < 180` | 180px | 极小预测距离 |
+| L7 | `vy > 300 && dist < 150 && dx < 60` | 150px | AI急速下落 |
+| L8 | `edgeDist < 25 && minDist < 8 && dist < 200 && ratio > 3` | 200px | 垂直边缘贴近 |
+
+**核心机制**：
+
+1. **抛物线轨迹预测** (`predictiveTrajectoryCheck()`):
+   - 60帧@120Hz采样（0.5秒预测窗口）
+   - 玩家和AI均按抛物线运动（考虑重力）
+   - AI站在平台上时不施加重力（`body.blocked.down` 判断）
+   - 返回 `PredictionResult`：minDist、minDistFrame、minDistTime、预测位置、垂直边缘距离
+
+2. **视线检测** (`hasClearLineOfSight()`):
+   - 身体中心连线检测障碍物
+   - 排除地面平台、NPC脚下平台（25px内）、NPC周围平台
+
+3. **垂直边缘距离** (`verticalEdgeDist`):
+   - 公式：`|predPy - predFy| - (playerHalfH + AIHalfH)`
+   - 负值表示角色边缘重叠，用于垂直接近场景判断
+
+4. **闪现机制**：
+   - NPC 冻结标志（`frozen=true`）：跳过 AI 更新，防止速度/重力积累
+   - 重力禁用（`body.setAllowGravity(false)`）：防止悬空
+   - 速度清零（`body.setVelocity(0,0)`）：防止残余速度
+   - 水平方向闪现：使用 Container tween 避免物理体同步问题
+
+**一次性触发**：`bulletTimeTriggered` 标记，每次追捕只触发一次。
 
 ### 6.8 RainManager（v0.4 新增）
 
@@ -548,6 +594,7 @@ npm run typecheck   # TypeScript 类型检查
 
 | 版本 | 日期 | 变更 |
 |------|------|------|
+| v2.2 | 2026-07-11 | v0.4 子弹时间自动触发:新增6.7b章节(多维度距离门控L1-L8/轨迹预测/视线检测/垂直边缘距离/闪现机制) |
 | v2.1 | 2026-07-09 | v0.4 起步:新增 SlowMoManager(6.7)/RainManager(6.8)/目录更新 |
 | v2.0 | 2026-07-07 | v0.2 内容深化:新增子场景(BaseSubScene/ChaseScene)/状态驱动绑定/MovableNpc/SfxManager/检查点/目录更新 |
 | v1.0 | 2026-07-06 | 初版:Vue3+Phaser 分层架构、目录结构、场景设计、TextSprite 要点 |
