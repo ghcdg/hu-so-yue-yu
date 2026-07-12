@@ -44,6 +44,10 @@ export interface TextSpriteConfig {
   type: TextSpriteType
   text: string
   subtitle?: string
+  /** 头部文字（split 布局专用） */
+  headerText?: string
+  /** 布局模式：single 居中 / split 上下分区（header 20% + body 80%） */
+  layout?: 'single' | 'split'
   /** 后缀:.jpg 静态 / .gif 滚动 / 无(同 .jpg) */
   suffix?: TextSpriteSuffix
   position?: { x: number; y: number }
@@ -72,8 +76,11 @@ export interface TextSpriteConfig {
   /** 状态绑定(v0.2 新增,可选):绑定后卡片文字随状态源变化 */
   stateBinding?: {
     sourceId: string       // 状态源ID(如 'player' / 'npc_oldMan')
-    textMap: Record<string, string>  // 状态→文字映射
-    subtitleMap?: Record<string, string> // 状态→副文字映射(可选)
+    textMap: Record<string, string>  // 状态→文字映射（single=主文字, split=主体文字）
+    subtitleMap?: Record<string, string> // 状态→副文字映射（可选）
+    headerTextMap?: Record<string, string>  // split 布局：状态→头部文字
+    bodyTextMap?: Record<string, string>    // split 布局：状态→主体文字（优先于 textMap）
+    kaomojiMap?: Record<string, string>     // split 布局：状态→颜文字（独立元素，自动缩放）
   }
 }
 
@@ -110,8 +117,22 @@ export class TextSprite extends Phaser.GameObjects.Container {
   // 子对象
   private background: Phaser.GameObjects.Graphics
   private borderGfx: Phaser.GameObjects.Graphics
-  private mainText: Phaser.GameObjects.Text
+  private mainText!: Phaser.GameObjects.Text
   private subtitleText: Phaser.GameObjects.Text | null = null
+
+  // split 布局
+  private layoutMode: 'single' | 'split' = 'single'
+  private headerTextObj: Phaser.GameObjects.Text | null = null
+  private kaomojiObj: Phaser.GameObjects.Text | null = null
+  private dividerGfx: Phaser.GameObjects.Graphics | null = null
+  private headerStateTextMap: Record<string, string> | null = null
+  private bodyStateTextMap: Record<string, string> | null = null
+  private kaomojiStateTextMap: Record<string, string> | null = null
+  private lastHeaderStateLabel = ''
+  private lastBodyStateLabel = ''
+  private lastKaomojiStateLabel = ''
+  /** 暂停状态绑定（子弹时间等场景下临时覆盖文字） */
+  private stateBindingPaused = false
 
   // 尺寸
   private cardWidth: number
@@ -189,6 +210,9 @@ export class TextSprite extends Phaser.GameObjects.Container {
     this.borderGfx = scene.add.graphics()
     this.drawBorder()
 
+    // ── 布局模式 ──
+    this.layoutMode = config.layout ?? 'single'
+
     // ── 主文字 ──
     const fontSize = Math.max(28, Math.min(this.cardWidth, this.cardHeight) * 0.22)
     this.scrollFontSize = fontSize
@@ -203,25 +227,43 @@ export class TextSprite extends Phaser.GameObjects.Container {
     if (!isGif) {
       textStyle.wordWrap = { width: this.cardWidth - this.borderWidth * 2 - 16 }
     }
-    this.mainText = scene.add
-      .text(0, config.subtitle ? -this.cardHeight * 0.15 : 0, config.text, textStyle)
-      .setOrigin(0.5)
 
-    // ── 副文字 ──
-    if (config.subtitle) {
-      this.subtitleText = scene.add
-        .text(0, this.cardHeight * 0.25, config.subtitle, {
-          fontFamily: FONT_FAMILY,
-          fontSize: `${fontSize * 0.6}px`,
-          color: colorToHex(textColor),
-          align: 'center',
-          wordWrap: { width: this.cardWidth - this.borderWidth * 2 - 16 }
-        })
+    if (this.layoutMode === 'split') {
+      // split 布局：header(20%) + 分隔线 + body(80%)
+      this.initSplitLayout(scene, config, textColor, textStyle, fontSize)
+      if (isGif) {
+        console.warn('[TextSprite] .gif 滚动模式不支持 split 布局，将使用静态显示')
+      }
+    } else {
+      this.mainText = scene.add
+        .text(0, config.subtitle ? -this.cardHeight * 0.15 : 0, config.text, textStyle)
         .setOrigin(0.5)
+
+      // ── 副文字 ──
+      if (config.subtitle) {
+        this.subtitleText = scene.add
+          .text(0, this.cardHeight * 0.25, config.subtitle, {
+            fontFamily: FONT_FAMILY,
+            fontSize: `${fontSize * 0.6}px`,
+            color: colorToHex(textColor),
+            align: 'center',
+            wordWrap: { width: this.cardWidth - this.borderWidth * 2 - 16 }
+          })
+          .setOrigin(0.5)
+      }
     }
 
-    this.add([this.background, this.borderGfx, this.mainText])
-    if (this.subtitleText) this.add(this.subtitleText)
+    if (this.layoutMode === 'split') {
+      const children: Phaser.GameObjects.GameObject[] = [
+        this.background, this.borderGfx, this.dividerGfx!,
+        this.headerTextObj!, this.mainText
+      ]
+      if (this.kaomojiObj) children.push(this.kaomojiObj)
+      this.add(children)
+    } else {
+      this.add([this.background, this.borderGfx, this.mainText])
+      if (this.subtitleText) this.add(this.subtitleText)
+    }
 
     // ── 文字裁剪 mask(仅 .gif 模式,Graphics 放在 scene 层级避免遮文字) ──
     if (isGif) {
@@ -335,6 +377,94 @@ export class TextSprite extends Phaser.GameObjects.Container {
   }
 
   // ──────────────────────────────────────────────
+  // 内部:split 布局初始化
+  // ──────────────────────────────────────────────
+
+  /** 初始化 split 布局：header(20%) + 分隔线 + body(80%)
+   *  body 内部分为：kaomoji(45%) + bodyText(55%)，各为独立 Text 元素 */
+  private initSplitLayout(
+    scene: Phaser.Scene,
+    config: TextSpriteConfig,
+    textColor: number,
+    _bodyTextStyle: Phaser.Types.GameObjects.Text.TextStyle,
+    baseFontSize: number
+  ): void {
+    const headerHeight = this.cardHeight * 0.2
+    const bodyHeight = this.cardHeight * 0.8
+    const kaomojiHeight = bodyHeight * 0.45
+    const bodyTextHeight = bodyHeight * 0.55
+
+    const headerY = -this.cardHeight / 2 + headerHeight / 2
+    const dividerY = -this.cardHeight / 2 + headerHeight
+    const kaomojiY = dividerY + kaomojiHeight / 2
+    const bodyTextY = dividerY + kaomojiHeight + bodyTextHeight / 2
+
+    const innerWidth = this.cardWidth - this.borderWidth * 2 - 16
+
+    // 字体自适应
+    const headerFontSize = Math.max(12, Math.min(headerHeight * 0.7, baseFontSize * 0.6))
+    const bodyFontSize = Math.max(16, Math.min(bodyTextHeight * 0.45, baseFontSize))
+
+    // ── Header 文字 ──
+    this.headerTextObj = scene.add.text(0, headerY, config.headerText ?? '', {
+      fontFamily: FONT_FAMILY,
+      fontSize: `${headerFontSize}px`,
+      color: colorToHex(textColor),
+      align: 'center',
+      wordWrap: { width: innerWidth }
+    }).setOrigin(0.5)
+
+    // ── 解析初始文字：第一行为 kaomoji，其余为 bodyText ──
+    const { kaomoji, bodyText } = this.splitKaomojiAndText(config.text)
+
+    // ── Kaomoji（独立元素，自动缩放） ──
+    const kaoFontSize = this.calcKaomojiFontSize(kaomoji, innerWidth, kaomojiHeight)
+    this.kaomojiObj = scene.add.text(0, kaomojiY, kaomoji, {
+      fontFamily: FONT_FAMILY,
+      fontSize: `${kaoFontSize}px`,
+      color: colorToHex(textColor),
+      align: 'center'
+    }).setOrigin(0.5)
+
+    // ── Body 文字 ──
+    this.mainText = scene.add.text(0, bodyTextY, bodyText, {
+      fontFamily: FONT_FAMILY,
+      fontSize: `${bodyFontSize}px`,
+      color: colorToHex(textColor),
+      align: 'center',
+      wordWrap: { width: innerWidth }
+    }).setOrigin(0.5)
+
+    // ── 分隔线（细线，低透明度） ──
+    this.dividerGfx = scene.add.graphics()
+    this.dividerGfx.lineStyle(1, this.currentBorderColor, 0.2)
+    const dividerLeft = -this.cardWidth / 2 + this.borderWidth + 8
+    const dividerRight = this.cardWidth / 2 - this.borderWidth - 8
+    this.dividerGfx.lineBetween(dividerLeft, dividerY, dividerRight, dividerY)
+  }
+
+  /** 从文字中拆分 kaomoji 和 bodyText（第一行为 kaomoji，其余为 bodyText） */
+  private splitKaomojiAndText(text: string): { kaomoji: string; bodyText: string } {
+    const newlineIdx = text.indexOf('\n')
+    if (newlineIdx >= 0) {
+      return {
+        kaomoji: text.substring(0, newlineIdx),
+        bodyText: text.substring(newlineIdx + 1)
+      }
+    }
+    return { kaomoji: '', bodyText: text }
+  }
+
+  /** 计算 kaomoji 自适应字体大小（不超过卡片宽度和 kaomoji 区域高度） */
+  private calcKaomojiFontSize(kaomoji: string, maxWidth: number, maxHeight: number): number {
+    if (!kaomoji) return 12
+    const len = Math.max(kaomoji.length, 1)
+    const widthBased = maxWidth / len
+    const heightBased = maxHeight * 0.75
+    return Math.max(8, Math.floor(Math.min(widthBased, heightBased)))
+  }
+
+  // ──────────────────────────────────────────────
   // 公开 API
   // ──────────────────────────────────────────────
 
@@ -360,11 +490,43 @@ export class TextSprite extends Phaser.GameObjects.Container {
   /** 修改主文字(.gif 模式会重新准备滚动) */
   setText(text: string): this {
     this.config.text = text
-    if (this.suffix === '.gif') {
+    if (this.suffix === '.gif' && this.layoutMode !== 'split') {
       this.prepareScrollText()
     } else {
       this.mainText.setText(text)
     }
+    return this
+  }
+
+  /** 修改头部文字（split 布局专用） */
+  setHeaderText(text: string): this {
+    this.config.headerText = text
+    if (this.headerTextObj) {
+      this.headerTextObj.setText(text)
+    }
+    return this
+  }
+
+  /** 修改 kaomoji 文字（split 布局专用，自动缩放字体以适配卡片） */
+  setKaomoji(text: string): this {
+    if (!this.kaomojiObj) return this
+    const innerWidth = this.cardWidth - this.borderWidth * 2 - 16
+    const kaomojiHeight = this.cardHeight * 0.8 * 0.45
+    const fontSize = this.calcKaomojiFontSize(text, innerWidth, kaomojiHeight)
+    this.kaomojiObj.setFontSize(fontSize)
+    this.kaomojiObj.setText(text)
+    return this
+  }
+
+  /** 暂停状态绑定（子弹时间等场景下临时手动控制文字） */
+  pauseStateBinding(): this {
+    this.stateBindingPaused = true
+    return this
+  }
+
+  /** 恢复状态绑定 */
+  resumeStateBinding(): this {
+    this.stateBindingPaused = false
     return this
   }
 
@@ -398,10 +560,13 @@ export class TextSprite extends Phaser.GameObjects.Container {
   }
 
   /** 绑定状态源(v0.2 新增):卡片文字随状态源实时变化 */
-  bindState(source: StateTextSource, textMap: Record<string, string>, subtitleMap?: Record<string, string>): this {
+  bindState(source: StateTextSource, textMap: Record<string, string>, subtitleMap?: Record<string, string>, headerTextMap?: Record<string, string>, bodyTextMap?: Record<string, string>, kaomojiMap?: Record<string, string>): this {
     this.stateSource = source
     this.stateTextMap = textMap
     this.stateSubtitleMap = subtitleMap ?? null
+    this.headerStateTextMap = headerTextMap ?? null
+    this.bodyStateTextMap = bodyTextMap ?? null
+    this.kaomojiStateTextMap = kaomojiMap ?? null
     this.lastStateLabel = source.getStateLabel()
     this.applyStateLabel(this.lastStateLabel)
     return this
@@ -482,18 +647,47 @@ export class TextSprite extends Phaser.GameObjects.Container {
 
   /** 每帧检查状态变化,变化时更新文字 */
   private updateStateBinding(): void {
-    if (!this.stateSource || !this.stateTextMap) return
+    if (!this.stateSource || this.stateBindingPaused) return
+
     const stateLabel = this.stateSource.getStateLabel()
-    if (stateLabel !== this.lastStateLabel) {
-      this.lastStateLabel = stateLabel
-      this.applyStateLabel(stateLabel)
+
+    if (this.layoutMode === 'split') {
+      // split 模式：header、kaomoji、body 独立状态映射
+      if (this.headerStateTextMap && stateLabel !== this.lastHeaderStateLabel) {
+        this.lastHeaderStateLabel = stateLabel
+        const headerText = this.headerStateTextMap[stateLabel]
+        if (headerText !== undefined && this.headerTextObj) {
+          this.headerTextObj.setText(headerText)
+        }
+      }
+      if (this.kaomojiStateTextMap && stateLabel !== this.lastKaomojiStateLabel) {
+        this.lastKaomojiStateLabel = stateLabel
+        const kaomoji = this.kaomojiStateTextMap[stateLabel]
+        if (kaomoji !== undefined) {
+          this.setKaomoji(kaomoji)
+        }
+      }
+      const bodyMap = this.bodyStateTextMap ?? this.stateTextMap
+      if (bodyMap && stateLabel !== this.lastBodyStateLabel) {
+        this.lastBodyStateLabel = stateLabel
+        const bodyText = bodyMap[stateLabel]
+        if (bodyText !== undefined && this.mainText) {
+          this.mainText.setText(bodyText)
+        }
+      }
+    } else {
+      // single 模式：原有逻辑
+      if (stateLabel !== this.lastStateLabel) {
+        this.lastStateLabel = stateLabel
+        this.applyStateLabel(stateLabel)
+      }
     }
   }
 
-  /** 根据状态标识更新卡片文字 */
+  /** 根据状态标识更新卡片文字（single 模式） */
   private applyStateLabel(label: string): void {
     const text = this.stateTextMap![label]
-    if (!text) return
+    if (text === undefined) return
     this.config.text = text
     if (this.suffix === '.gif') {
       this.prepareScrollText()
@@ -503,7 +697,7 @@ export class TextSprite extends Phaser.GameObjects.Container {
     // 副文字同步更新
     if (this.subtitleText && this.stateSubtitleMap) {
       const sub = this.stateSubtitleMap[label]
-      if (sub) {
+      if (sub !== undefined) {
         this.config.subtitle = sub
         this.subtitleText.setText(sub)
       }
@@ -576,6 +770,12 @@ export class TextSprite extends Phaser.GameObjects.Container {
     this.maskGraphics?.destroy()
     this.maskGraphics = null
     this.clipMask = null
+    // 清理 split 布局的分隔线
+    this.dividerGfx?.destroy()
+    this.dividerGfx = null
+    // 清理 kaomoji（独立元素，不在 Container children 中自动管理）
+    this.kaomojiObj?.destroy()
+    this.kaomojiObj = null
     super.destroy(fromScene)
   }
 }

@@ -30,8 +30,7 @@ export function createPhaserGame(parent: HTMLElement): Phaser.Game {
     height: GAME_SIZE.HEIGHT,
     backgroundColor: '#1a1a2e',
     scale: {
-      mode: Phaser.Scale.NONE,
-      autoCenter: Phaser.Scale.CENTER_BOTH
+      mode: Phaser.Scale.NONE
     },
     physics: {
       default: 'arcade',

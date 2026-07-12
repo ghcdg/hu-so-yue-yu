@@ -191,6 +191,8 @@ export class ChaseScene extends BaseSubScene {
       id: cfg.fugitive.npcId,
       card: {
         ...cfg.fugitive.card,
+        layout: 'split',
+        headerText: '梦想',
         stateBinding: {
           sourceId: cfg.fugitive.npcId,
           textMap: cfg.stateTextMaps?.fugitive ?? {
@@ -215,7 +217,11 @@ export class ChaseScene extends BaseSubScene {
     this.fugitive = new MovableNpc(this, fugData)
     this.fugitive.bindState(
       this.fugitive,
-      (cfg.fugitive.card.stateBinding ?? fugData.card.stateBinding)!.textMap
+      { idle: '', patrol: '', flee: '', caught: '', flee_empty: '' },
+      undefined,
+      { idle: '梦想', patrol: '梦想', flee: '梦想', caught: '梦想', flee_empty: '梦想' },
+      { idle: '发呆中', patrol: '巡逻中', flee: '逃跑中', caught: '被抓住了', flee_empty: '没子弹了' },
+      { idle: '(´・ω・`)', patrol: '(｀・ω・´)', flee: '(；´Д｀)', caught: '(；ω；`)', flee_empty: '(´；ω；`)' }
     )
     this.fugitive.onCaught = () => {
       this.onCatch()
@@ -841,6 +847,11 @@ export class ChaseScene extends BaseSubScene {
       this.fugitive.frozen = false
       body?.setVelocity(0, 0)
 
+      // 子弹时间 kaomoji 覆盖
+      this.fugitive.pauseStateBinding()
+      this.fugitive.setKaomoji('(≧∇≦)ﾉ')
+      this.fugitive.setText('抓不到我~')
+
       // 闪现提示
       this.showFlashHint(targetX, targetY)
 
@@ -1081,6 +1092,7 @@ export class ChaseScene extends BaseSubScene {
     if (this.bulletTimeTimer) { this.bulletTimeTimer.destroy(); this.bulletTimeTimer = null }
     if (this.freezeTimer) { this.freezeTimer.destroy(); this.freezeTimer = null }
     this.fugitive.frozen = false
+    this.fugitive.resumeStateBinding()
     this.countdownText?.destroy()
     this.countdownText = null
     SlowMoManager.getInstance().resume(SLOWMO.TRANSITION_OUT_MS)
