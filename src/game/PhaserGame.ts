@@ -13,6 +13,7 @@ import { LevelScene } from './scenes/LevelScene'
 import { UIScene } from './scenes/UIScene'
 import { ChaseScene } from './scenes/ChaseScene'
 import { FootballScene } from './scenes/FootballScene'
+import { FindDifferenceScene } from './scenes/FindDifferenceScene'
 import { speakerManager } from '@/speakers/SpeakerManager'
 import { JyutpingSpeaker } from '@/speakers/JyutpingSpeaker'
 import { WebSpeechSpeaker } from '@/speakers/WebSpeechSpeaker'
@@ -39,7 +40,7 @@ export function createPhaserGame(parent: HTMLElement): Phaser.Game {
         debug: false
       }
     },
-    scene: [BootScene, PreloadScene, LevelScene, UIScene, ChaseScene, FootballScene]
+    scene: [BootScene, PreloadScene, LevelScene, UIScene, ChaseScene, FootballScene, FindDifferenceScene]
   })
 
   // 响应式 zoom: 一次缩放到位，避免 FIT 模式二次缩放导致文字模糊

@@ -967,12 +967,114 @@ src/
 
 ---
 
+## 2026-07-12 · 阶段7:2x 分辨率升级 + 子弹时间优化 + TextSprite 颜文字重构
+
+### 决策记录
+
+#### 54. 2x 内部分辨率升级（1280×720 → 2560×1440）
+
+**背景**: Phaser 3/4 均不支持通过 GameConfig 设置 resolution，FIT 缩放模式在窗口小于 1280×720 时产生二次插值，导致文字模糊。
+
+**决策**:
+- 将 `GAME_SIZE` 从 `{w:1280, h:720}` 翻倍为 `{w:2560, h:1440}`
+- CSS 缩放 0.5（`canvas { zoom: 0.5 }`）保持视觉尺寸不变
+- 所有游戏数值（坐标、速度、大小、JSON 数据）翻倍
+- 缩放模式改为 `NONE`（非 FIT），手动计算动态 zoom：`Math.min(windowW / 2560, windowH / 1440, 0.5)`
+- 添加 `window.resize` 监听实时调整 zoom
+
+**影响范围**:
+- `constants.ts`: GAME_SIZE 翻倍
+- `index.html` / `styles.css`: canvas zoom 0.5 + 动态 zoom 逻辑
+- 所有关卡 JSON: 坐标/尺寸翻倍
+- 所有场景: 速度/位置常量翻倍
+
+**理由**: 提高像素密度让文字清晰度大幅提升，CSS zoom 保持视觉尺寸不变。NONE 模式避免 Phaser ScaleManager 的二次插值。
+
+**修复联动**:
+- **玩家跳不上平台**: 跳跃速度增加 5%（单跳 -1120→-1160，双跳 -960→-1000）提供平台登台余量
+- **文字太小**: 全局最小字体设为 28px（内部分辨率），覆盖 UIScene/LevelScene/FootballScene/TextSprite
+- **AI 追捕变傻**: `chaseTriggerRadius` 未翻倍（200px→400px），导致 AI 一直处于 patrol 状态不进入 flee
+
+---
+
+#### 55. 子弹时间触发逻辑优化（L1-L3 重排 + 条件收紧）
+
+**背景**: 测试发现两个问题：
+1. AI 下落场景中子弹时间不触发——日志显示 L1-L3 被跳过（因其放在预测检查之后）
+2. 障碍物场景中 L2 误触发——玩家穿过平台障碍物时，虽距离近但实际无法到达 AI
+
+**决策**:
+- **执行流重排**: `checkBulletTimeTrigger()` 中将 L1-L3 移到预测检查之前，确保纯距离门控始终可用
+  - 新流程: L4 → isAirborne → los → 障碍物检测 → L1-L3 → 预测检查 → L5-L8
+- **L1-L3 条件收紧**: 从 `trajectoryHitsObstacle` 改为 `fugitiveAirborne || predictionOk`
+  - 移除 `trajectoryHitsObstacle` 条件，避免 AI 着地+平台阻挡时误触发
+  - 仅当 AI 在空中（玩家可追击）或预测可靠（轨迹无遮挡）时触发
+- **L5-L8 条件**: 使用 `predictionOk`（AI 和玩家轨迹均无遮挡），确保预测可靠
+
+**障碍物检测增强**:
+- 新增 `doesPlayerTrajectoryHitObstacle()`: 预测玩家 60 帧抛物线轨迹，检测是否穿过平台
+- `predictionOk` = `!aiTrajectoryBlocked && !playerTrajectoryBlocked`
+
+**理由**: L1-L3 是纯距离兜底，不应被预测检查阻塞；条件收紧避免"距离近但无法到达"的误触发。
+
+---
+
+#### 56. TextSprite 颜文字重构：拆分 body 为 kaomoji + bodyText 独立元素
+
+**背景**: 之前颜文字和正文用 `\n` 分隔在同一 Text 对象中，无法独立控制样式和状态绑定。颜文字变化时可能超出卡片范围。
+
+**决策**:
+- **body 区域拆分**: kaomoji（颜文字）占 body 的 45%（上方），bodyText（普通文字）占 55%（下方）
+- **独立 Text 对象**: `kaomojiObj` 和 `mainText` 分离为两个 Phaser.Text 对象
+- **颜文字自动缩放**: `calcKaomojiFontSize()` 根据文字长度和卡片可用宽度计算字号，`Math.max(8, Math.floor(Math.min(maxWidth / len, maxHeight * 0.75)))`
+- **状态绑定扩展**: `stateBinding` 新增 `kaomojiMap` 和 `bodyTextMap`，支持状态驱动的颜文字+正文独立更新
+- **状态绑定暂停/恢复**: `pauseStateBinding()` / `resumeStateBinding()` 用于子弹时间等场景临时覆盖
+- **文本拆分**: `splitKaomojiAndText()` 按第一个 `\n` 拆分颜文字和正文
+
+**追捕场景适配**:
+- 逃亡者 NPC 卡片绑定完整状态映射（header + kaomoji + bodyText）:
+  - idle: 梦想 / (´・ω・`) / 发呆中
+  - patrol: 梦想 / (｀・ω・´) / 巡逻中
+  - flee: 梦想 / (；´Д｀) / 逃跑中
+  - caught: 梦想 / (；ω；`) / 被抓住了
+  - flee_empty: 梦想 / (´；ω；`) / 没子弹了
+- 子弹时间覆盖: `pauseStateBinding()` + `setKaomoji('(≧∇≦)ﾉ')` + `setText('抓不到我~')`
+- 恢复: `resumeNormalSpeed()` 中调用 `resumeStateBinding()`
+
+**向后兼容**: `kaomojiMap` 和 `bodyTextMap` 均为可选参数，不传则维持原有行为。单行模式（无 `\n`）不受影响。
+
+**理由**: 独立 Text 对象让颜文字和正文可以独立缩放、独立更新、独立状态驱动。颜文字自动缩放确保无论内容多长都不会超出卡片。
+
+---
+
+### 产出清单
+
+✅ 2x 分辨率升级: GAME_SIZE 2560×1440 + CSS zoom 0.5 + 动态 zoom 计算
+✅ 所有数值翻倍: 坐标/速度/尺寸/JSON 数据
+✅ 跳高修复: 单跳 -1160 / 双跳 -1000（+5% 余量）
+✅ 全局最小字体 28px
+✅ AI 追捕修复: chaseTriggerRadius 400px（2x 缩放）
+✅ 缩放模式: FIT → NONE + 动态 zoom
+✅ 子弹时间流重排: L1-L3 前移到预测检查之前
+✅ L1-L3 条件收紧: fugitiveAirborne || predictionOk
+✅ 玩家轨迹障碍物检测: doesPlayerTrajectoryHitObstacle()
+✅ TextSprite 颜文字重构: 拆分 body + 自动缩放 + 独立状态绑定
+✅ 追捕场景适配: 逃亡者卡片 split 布局 + 子弹时间覆盖
+✅ typecheck 通过 + 浏览器测试通过
+
+### 下一步
+
+进入阶段8: 第2个子场景「找区别」设计与实现。
+
+---
+
 ## 版本历史
 
 | 版本 | 日期 | 变更 |
 |------|------|------|
-| v2.0 | 2026-07-09 | 阶段6起步:慢动作系统从零开始(决策50:SlowMoManager+RainManager+T键测试/分步迭代/5项修复+SLOWMO配置块) |
+| v2.2 | 2026-07-12 | 阶段7:2x分辨率升级+缩放修复+子弹时间优化+TextSprite颜文字重构(决策54-56) |
 | v2.1 | 2026-07-11 | 阶段6调优:子弹时间L1-L8门控+轨迹预测+障碍物检测+阈值比例化+双色轨迹可视化(决策51-53) |
+| v2.0 | 2026-07-09 | 阶段6起步:慢动作系统从零开始(决策50:SlowMoManager+RainManager+T键测试/分步迭代/5项修复+SLOWMO配置块) |
 | v1.9 | 2026-07-07 | 阶段5文档设计:内容深化方案(决策35-41:状态驱动/子场景/MovableNpc/区域模块化/登台门槛/音效等) |
 | v1.8 | 2026-07-06 | 阶段4优化:圆角卡片+文字裁剪+统一设计Token+场景清理+掉落复活(决策31-34) |
 | v1.7 | 2026-07-06 | 阶段3完成:收集系统+通关结算+伏笔(决策30:三档评价/老伯epilogue/ResultView重写) |

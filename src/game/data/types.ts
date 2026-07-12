@@ -59,6 +59,7 @@ export type InteractAction =
   | 'kick_football' // 区4:踢足球 → 进入足球子场景收集文字
   | 'trigger_surprise' // 区7:触发必触发惊喜(咸鱼翻身 buff)
   | 'hidden_shoe' // 区6隐藏:踢破旧足球鞋 → 钢铁腿隐藏惊喜
+  | 'find_difference' // 找区别于场景: 在一堆咸鱼中找出梦想鱼
 
 /** 可互动物件数据 */
 export interface InteractableData {
@@ -177,6 +178,20 @@ export interface ZoneData {
   enterHint?: string
   /** 检查点位置(掉落复活点) */
   checkpoint?: { x: number; y: number }
+}
+
+/** 找区别于场景配置(v0.5) */
+export interface FindDifferenceSceneConfig {
+  id: string
+  type: 'findDifference'
+  worldSize: { width: number; height: number }
+  fishCount: number
+  difficulty: number
+  gridCols: number
+  reward: {
+    word: string
+    jyutping: string
+  }
 }
 
 /** 将 SentenceData 转为 Sentence(shared 类型) */

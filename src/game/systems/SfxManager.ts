@@ -19,6 +19,10 @@ export type SfxType =
   | 'levelComplete'
   | 'hit'
   | 'chaseStart'
+  | 'correct'
+  | 'wrong'
+  | 'combo'
+  | 'tick'
 
 export class SfxManager {
   private static instance: SfxManager | null = null
@@ -56,6 +60,10 @@ export class SfxManager {
         case 'levelComplete': this.playChord(ctx); break
         case 'hit': this.playTone(ctx, 200, 0.1, 'sawtooth', 0.2); break
         case 'chaseStart': this.playTone(ctx, 500, 0.15, 'sawtooth', 0.25); break
+        case 'correct': this.playTone(ctx, 880, 0.12, 'sine', 0.25); break
+        case 'wrong': this.playTone(ctx, 150, 0.15, 'sawtooth', 0.2); break
+        case 'combo': this.playCombo(ctx); break
+        case 'tick': this.playTone(ctx, 1000, 0.04, 'sine', 0.15); break
       }
     } catch {
       // 静默失败,音效不影响游戏运行
@@ -162,5 +170,20 @@ export class SfxManager {
       osc.start(ctx.currentTime)
       osc.stop(ctx.currentTime + 0.6)
     })
+  }
+
+  /** combo 音效: 快速上升音阶 */
+  private playCombo(ctx: AudioContext): void {
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.type = 'sine'
+    osc.frequency.setValueAtTime(600, ctx.currentTime)
+    osc.frequency.linearRampToValueAtTime(1200, ctx.currentTime + 0.1)
+    gain.gain.setValueAtTime(0.2, ctx.currentTime)
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15)
+    osc.connect(gain)
+    gain.connect(ctx.destination)
+    osc.start(ctx.currentTime)
+    osc.stop(ctx.currentTime + 0.15)
   }
 }

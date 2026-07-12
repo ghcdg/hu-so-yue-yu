@@ -13,7 +13,9 @@ export const SCENE = {
   /** 剧情对话子场景(v0.2) */
   DIALOGUE: 'DialogueScene',
   /** 踢足球子场景(v0.2) */
-  FOOTBALL: 'FootballScene'
+  FOOTBALL: 'FootballScene',
+  /** 找区别于场景(v0.5) */
+  FIND_DIFFERENCE: 'FindDifferenceScene'
 } as const
 
 /** 游戏画布尺寸(16:9) — 2x 内部渲染分辨率 */

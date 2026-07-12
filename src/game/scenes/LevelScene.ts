@@ -19,6 +19,7 @@ import { Npc } from '@/game/objects/Npc'
 import { InteractableObject } from '@/game/objects/InteractableObject'
 import type { ChaseSceneConfig } from '@/game/scenes/ChaseScene'
 import type { FootballSceneConfig } from '@/game/scenes/FootballScene'
+import type { FindDifferenceSceneConfig } from '@/game/data/types'
 import { SfxManager } from '@/game/systems/SfxManager'
 import levelData from '@/game/data/levels/level_01_fish.json'
 import type { LevelData, SurpriseData, BuffData, InteractAction, DialogueData } from '@/game/data/types'
@@ -230,6 +231,9 @@ export class LevelScene extends Phaser.Scene {
     // ── ESC 通关 ──
     this.input.keyboard?.on('keydown-ESC', () => this.finishLevel())
 
+    // ── F 键测试找区别于场景 ──
+    this.input.keyboard?.on('keydown-F', () => this.startFindDifferenceScene())
+
     // 子场景结果监听
     this.events.on('subscene-result', (result: any) => {
       if (result.outcome === 'success') {
@@ -343,6 +347,9 @@ export class LevelScene extends Phaser.Scene {
         break
       case 'kick_football':
         this.kickFootball(obj)
+        break
+      case 'find_difference':
+        this.startFindDifferenceScene()
         break
     }
   }
@@ -589,5 +596,18 @@ export class LevelScene extends Phaser.Scene {
       return
     }
     this.scene.launch(SCENE.CHASE, chaseCfg)
+  }
+
+  /** 启动找区别于场景（v0.5） */
+  private startFindDifferenceScene(): void {
+    this.scene.launch(SCENE.FIND_DIFFERENCE, {
+      id: 'find_difference',
+      type: 'findDifference',
+      worldSize: { width: 2560, height: 1440 },
+      fishCount: 20,
+      difficulty: 4,
+      gridCols: 4,
+      reward: { word: '梦', jyutping: 'mung6' }
+    } as FindDifferenceSceneConfig)
   }
 }

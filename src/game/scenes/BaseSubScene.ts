@@ -39,7 +39,7 @@ export interface SubSceneResult {
 /** 子场景配置(基类,各子类型扩展) */
 export interface SubSceneConfig {
   id: string
-  type: 'chase' | 'dialogue' | 'fight' | 'football'
+  type: 'chase' | 'dialogue' | 'fight' | 'football' | 'findDifference'
   /** 子场景结束后的回调数据 */
   onComplete?: Record<string, any>
 }

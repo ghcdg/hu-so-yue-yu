@@ -143,14 +143,14 @@
       "revealCoinId": "coin_haam4"
     },
     {
-      "id": "int_old_football",
+      "id": "int_find_difference",
       "card": {
-        "type": "object", "text": "破旧足球", "suffix": ".jpg",
-        "interactable": true, "interactHint": "按 E 踢一脚",
+        "type": "object", "text": "找区别", "suffix": ".jpg",
+        "interactable": true, "interactHint": "按 E 找区别",
         "highlight": true
       },
       "position": { "x": 2000, "y": 840 },
-      "action": "kick_football"
+      "action": "find_difference"
     },
     {
       "id": "int_challenge_fish",
