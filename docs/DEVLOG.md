@@ -1047,6 +1047,35 @@ src/
 
 ---
 
+#### 57. ChaseScene NPC 卡片简化：split 布局回退 single + `\n`
+
+**背景**: 上线后发现 split 布局导致 NPC 卡片字号分散（header 17px / kaomoji 11px / body 24px），视觉清晰度远不如 FindDifferenceScene 的 single 布局（统一 28px）。且 split 布局代码复杂度高（5 个独立 map + 3 个 Text 对象 + 分隔线 Graphics）。
+
+**决策**:
+- **移除 split 布局**: 删除 `fugData.card` 中的 `layout: 'split'`、`headerText: '梦想'`、`stateBinding`，回退到默认 `single` 布局
+- **状态绑定简化**: `bindState()` 从 5 参数 split 映射简化为单个 `textMap`，值用 `\n` 拼接：
+  ```
+  idle: '梦想\n(´・ω・`)\n发呆中'
+  patrol: '梦想\n(｀・ω・´)\n巡逻中'
+  flee: '梦想\n(；´Д｀)\n逃跑中'
+  caught: '梦想\n(；ω；`)\n被抓住了'
+  flee_empty: '梦想\n(´；ω；`)\n没子弹了'
+  ```
+- **子弹时间覆盖简化**: `setKaomoji()` + `setText()` 两次调用 → 一次 `setText('梦想\n(≧∇≦)ﾉ\n抓不到我~')`
+- **字号统一**: 11-24px（split）→ 28px（single），清晰度大幅提升
+
+**效果对比**:
+| 维度 | split 布局（100×120） | single + `\n`（100×120） |
+|------|----------------------|--------------------------|
+| 最大字号 | 24px（body） | 28px（统一） |
+| 最小字号 | 11px（kaomoji） | 28px（统一） |
+| 视觉分隔线 | 有 | 无 |
+| 代码复杂度 | 高（3 个独立 Text + 5 个 map） | 低（1 个 Text + 1 个 map） |
+
+**理由**: split 布局的 header 分隔线视觉价值远低于文字清晰度。single + `\n` 方案与 FindDifferenceScene 渲染方式一致，风格统一。TextSprite 中 split 布局代码保留（向后兼容），仅 ChaseScene 不再使用。
+
+---
+
 ### 产出清单
 
 ✅ 2x 分辨率升级: GAME_SIZE 2560×1440 + CSS zoom 0.5 + 动态 zoom 计算
@@ -1060,6 +1089,7 @@ src/
 ✅ 玩家轨迹障碍物检测: doesPlayerTrajectoryHitObstacle()
 ✅ TextSprite 颜文字重构: 拆分 body + 自动缩放 + 独立状态绑定
 ✅ 追捕场景适配: 逃亡者卡片 split 布局 + 子弹时间覆盖
+✅ 卡片简化: split 布局回退 single + `\n`，字号统一 28px
 ✅ typecheck 通过 + 浏览器测试通过
 
 ### 下一步
@@ -1072,7 +1102,7 @@ src/
 
 | 版本 | 日期 | 变更 |
 |------|------|------|
-| v2.2 | 2026-07-12 | 阶段7:2x分辨率升级+缩放修复+子弹时间优化+TextSprite颜文字重构(决策54-56) |
+| v2.2 | 2026-07-12 | 阶段7:2x分辨率升级+缩放修复+子弹时间优化+TextSprite颜文字重构+卡片简化(决策54-57) |
 | v2.1 | 2026-07-11 | 阶段6调优:子弹时间L1-L8门控+轨迹预测+障碍物检测+阈值比例化+双色轨迹可视化(决策51-53) |
 | v2.0 | 2026-07-09 | 阶段6起步:慢动作系统从零开始(决策50:SlowMoManager+RainManager+T键测试/分步迭代/5项修复+SLOWMO配置块) |
 | v1.9 | 2026-07-07 | 阶段5文档设计:内容深化方案(决策35-41:状态驱动/子场景/MovableNpc/区域模块化/登台门槛/音效等) |
