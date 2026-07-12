@@ -56,25 +56,25 @@ export class UIScene extends Phaser.Scene {
     const { WIDTH } = GAME_SIZE
 
     // ── 顶部 HUD ──
-    this.add.rectangle(0, 0, WIDTH, 48, COLORS.BG_LIGHT, 0.85).setOrigin(0, 0).setScrollFactor(0)
+    this.add.rectangle(0, 0, WIDTH, 96, COLORS.BG_LIGHT, 0.85).setOrigin(0, 0).setScrollFactor(0)
     this.coinText = this.add
-      .text(20, 14, '粤语金币: 0', {
+      .text(40, 28, '粤语金币: 0', {
         fontFamily: 'Arial, "Microsoft YaHei", sans-serif',
-        fontSize: '18px',
+        fontSize: '36px',
         color: '#ffd166'
       })
       .setScrollFactor(0)
     this.hiddenText = this.add
-      .text(220, 14, '隐藏发现: 0', {
+      .text(440, 28, '隐藏发现: 0', {
         fontFamily: 'Arial, "Microsoft YaHei", sans-serif',
-        fontSize: '18px',
+        fontSize: '32px',
         color: '#ef476f'
       })
       .setScrollFactor(0)
     this.add
-      .text(WIDTH - 20, 14, 'ESC = 通关结算', {
+      .text(WIDTH - 40, 28, 'ESC = 通关结算', {
         fontFamily: 'Arial, "Microsoft YaHei", sans-serif',
-        fontSize: '14px',
+        fontSize: '28px',
         color: '#a0a0c0'
       })
       .setOrigin(1, 0)
@@ -82,9 +82,9 @@ export class UIScene extends Phaser.Scene {
 
     // 对话提示(初始隐藏)
     this.dialogHint = this.add
-      .text(WIDTH / 2, GAME_SIZE.HEIGHT - 50, '按 E 继续 / 走开关闭', {
+      .text(WIDTH / 2, GAME_SIZE.HEIGHT - 100, '按 E 继续 / 走开关闭', {
         fontFamily: 'Arial, "Microsoft YaHei", sans-serif',
-        fontSize: '13px',
+        fontSize: '28px',
         color: '#a0a0c0'
       })
       .setOrigin(0.5)
@@ -93,12 +93,12 @@ export class UIScene extends Phaser.Scene {
 
     // 互动提示(初始隐藏,靠近可互动物件时显示)
     this.interactHint = this.add
-      .text(WIDTH / 2, GAME_SIZE.HEIGHT - 80, '', {
+      .text(WIDTH / 2, GAME_SIZE.HEIGHT - 160, '', {
         fontFamily: 'Arial, "Microsoft YaHei", sans-serif',
-        fontSize: '15px',
+        fontSize: '30px',
         color: '#ffd166',
         backgroundColor: 'rgba(0,0,0,0.7)',
-        padding: { x: 10, y: 6 }
+        padding: { x: 20, y: 12 }
       })
       .setOrigin(0.5)
       .setScrollFactor(0)
@@ -163,10 +163,10 @@ export class UIScene extends Phaser.Scene {
     this.hideDialog()
 
     const { WIDTH, HEIGHT } = GAME_SIZE
-    const cardW = 760
-    const cardH = 120
+    const cardW = 1520
+    const cardH = 240
 
-    this.dialogCard = new TextSprite(this, WIDTH / 2, HEIGHT - 110, {
+    this.dialogCard = new TextSprite(this, WIDTH / 2, HEIGHT - 220, {
       type: 'dialogue',
       text: line.text,
       subtitle: line.speaker,
@@ -192,14 +192,14 @@ export class UIScene extends Phaser.Scene {
     this.toastText?.destroy()
     const { WIDTH, HEIGHT } = GAME_SIZE
     this.toastText = this.add
-      .text(WIDTH / 2, HEIGHT - 160, text, {
+      .text(WIDTH / 2, HEIGHT - 320, text, {
         fontFamily: 'Arial, "Microsoft YaHei", sans-serif',
-        fontSize: '15px',
+        fontSize: '30px',
         color: '#ffffff',
         backgroundColor: 'rgba(0,0,0,0.8)',
-        padding: { x: 14, y: 8 },
+        padding: { x: 28, y: 16 },
         align: 'center',
-        wordWrap: { width: 600 }
+        wordWrap: { width: 1200 }
       })
       .setOrigin(0.5)
       .setScrollFactor(0)
@@ -225,7 +225,7 @@ export class UIScene extends Phaser.Scene {
   private showSurpriseSetup(cardConfig: TextSpriteConfig): void {
     this.surpriseSetupCard?.destroy()
     const { WIDTH } = GAME_SIZE
-    this.surpriseSetupCard = new TextSprite(this, WIDTH / 2, 120, {
+    this.surpriseSetupCard = new TextSprite(this, WIDTH / 2, 240, {
       ...cardConfig,
       animation: 'glow'
     })
@@ -241,7 +241,7 @@ export class UIScene extends Phaser.Scene {
 
     const { WIDTH, HEIGHT } = GAME_SIZE
     // 位置上移到 HEIGHT/2-140,让玩家(屏幕中央)不被卡片遮挡
-    this.surpriseRevealCard = new TextSprite(this, WIDTH / 2, HEIGHT / 2 - 140, {
+    this.surpriseRevealCard = new TextSprite(this, WIDTH / 2, HEIGHT / 2 - 280, {
       ...cardConfig,
       suffix: '.gif',
       text: scrollText
@@ -270,9 +270,9 @@ export class UIScene extends Phaser.Scene {
       .setScrollFactor(0)
 
     // 揭示卡片(result 类型)
-    const cardW = 720
-    const cardH = 280
-    this.revealCard = new TextSprite(this, WIDTH / 2, HEIGHT / 2 - 20, {
+    const cardW = 1440
+    const cardH = 560
+    this.revealCard = new TextSprite(this, WIDTH / 2, HEIGHT / 2 - 40, {
       type: 'result',
       text: sentence.cantonese,
       subtitle: sentence.jyutping,
@@ -283,12 +283,12 @@ export class UIScene extends Phaser.Scene {
 
     // 普通话释义
     const mandarinText = this.add
-      .text(WIDTH / 2, HEIGHT / 2 + 80, sentence.mandarin, {
+      .text(WIDTH / 2, HEIGHT / 2 + 160, sentence.mandarin, {
         fontFamily: 'Arial, "Microsoft YaHei", sans-serif',
-        fontSize: '18px',
+        fontSize: '36px',
         color: '#a0a0c0',
         align: 'center',
-        wordWrap: { width: cardW - 40 }
+        wordWrap: { width: cardW - 80 }
       })
       .setOrigin(0.5)
       .setScrollFactor(0)
@@ -296,10 +296,10 @@ export class UIScene extends Phaser.Scene {
     // 来源
     if (sentence.source) {
       this.revealSource = this.add
-        .text(WIDTH / 2, HEIGHT / 2 + 120, `—— ${sentence.source}`, {
+        .text(WIDTH / 2, HEIGHT / 2 + 240, `—— ${sentence.source}`, {
           fontFamily: 'Arial, "Microsoft YaHei", sans-serif',
-          fontSize: '14px',
-          color: '#6a6a8a'
+          fontSize: '28px',
+        color: '#6a6a8a'
         })
         .setOrigin(0.5)
         .setScrollFactor(0)
@@ -307,9 +307,9 @@ export class UIScene extends Phaser.Scene {
 
     // 提示
     this.revealHint = this.add
-      .text(WIDTH / 2, HEIGHT - 60, '按任意键继续(ESC 通关结算)', {
+      .text(WIDTH / 2, HEIGHT - 120, '按任意键继续(ESC 通关结算)', {
         fontFamily: 'Arial, "Microsoft YaHei", sans-serif',
-        fontSize: '14px',
+        fontSize: '28px',
         color: '#ffd166'
       })
       .setOrigin(0.5)

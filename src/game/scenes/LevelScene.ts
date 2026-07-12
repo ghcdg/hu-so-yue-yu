@@ -28,11 +28,11 @@ import { speakerManager } from '@/speakers/SpeakerManager'
 const LEVEL = levelData as LevelData
 
 /** NPC 互动检测半径 */
-const NPC_INTERACT_RADIUS = 80
+const NPC_INTERACT_RADIUS = 160
 /** 可互动物件检测半径 */
-const OBJECT_INTERACT_RADIUS = 70
+const OBJECT_INTERACT_RADIUS = 140
 /** 对话中玩家走远自动关闭的距离阈值 */
-const DIALOG_CLOSE_DISTANCE = 120
+const DIALOG_CLOSE_DISTANCE = 240
 
 export class LevelScene extends Phaser.Scene {
   private coins = 0
@@ -87,7 +87,7 @@ export class LevelScene extends Phaser.Scene {
     this.add
       .text(this.cameras.main.width / 2, 28, `${LEVEL.name} · ${LEVEL.themeTag}`, {
         fontFamily: 'Arial, "Microsoft YaHei", sans-serif',
-        fontSize: '20px',
+        fontSize: '40px',
         color: '#ffd166'
       })
       .setOrigin(0.5)
@@ -100,7 +100,7 @@ export class LevelScene extends Phaser.Scene {
         'A/D 移动 · W/Space 跳跃 · S 蹲下 · E 互动 · ESC 通关',
         {
           fontFamily: 'Arial, "Microsoft YaHei", sans-serif',
-          fontSize: '12px',
+          fontSize: '28px',
           color: '#a0a0c0'
         }
       )
@@ -147,7 +147,7 @@ export class LevelScene extends Phaser.Scene {
     this.cameras.main.startFollow(this.player, true, 0.1, 0.1)
 
     // ── 揭示点(隐形 zone) ──
-    this.revealZone = this.add.zone(LEVEL.revealPosition.x, LEVEL.revealPosition.y, 60, 60)
+    this.revealZone = this.add.zone(LEVEL.revealPosition.x, LEVEL.revealPosition.y, 120, 120)
     this.physics.add.existing(this.revealZone, true)
 
     // ── 碰撞配置 ──
@@ -380,8 +380,8 @@ export class LevelScene extends Phaser.Scene {
     this.scene.launch(SCENE.FOOTBALL, {
       id: 'football_street',
       type: 'football',
-      worldSize: { width: 800, height: 600 },
-      playerSpawn: { x: 150, y: 500 },
+      worldSize: { width: 1600, height: 1200 },
+      playerSpawn: { x: 300, y: 1000 },
       totalAttempts: 3
     } as FootballSceneConfig)
   }
@@ -478,7 +478,7 @@ export class LevelScene extends Phaser.Scene {
 
     // 掉落检测(超出世界底部 → 复活到最近检查点)
     const worldH = LEVEL.worldSize.height
-    if (this.player.y > worldH + 80) {
+    if (this.player.y > worldH + 160) {
       // 关闭对话(如果有)
       if (this.dialogActive) {
         this.closeDialog()
@@ -564,21 +564,21 @@ export class LevelScene extends Phaser.Scene {
       this.scene.launch(SCENE.CHASE, {
         id: 'chase_oldman',
         type: 'chase',
-        worldSize: { width: 800, height: 600 },
+        worldSize: { width: 1600, height: 1200 },
         platforms: [
-          { id: 'p1', type: 'static', position: { x: 200, y: 480 }, size: { width: 120, height: 20 } },
-          { id: 'p2', type: 'static', position: { x: 400, y: 400 }, size: { width: 120, height: 20 } },
-          { id: 'p3', type: 'static', position: { x: 600, y: 320 }, size: { width: 120, height: 20 } },
-          { id: 'p4', type: 'static', position: { x: 400, y: 240 }, size: { width: 120, height: 20 } },
-          { id: 'p5', type: 'static', position: { x: 200, y: 160 }, size: { width: 120, height: 20 } }
+          { id: 'p1', type: 'static', position: { x: 400, y: 960 }, size: { width: 240, height: 40 } },
+          { id: 'p2', type: 'static', position: { x: 800, y: 800 }, size: { width: 240, height: 40 } },
+          { id: 'p3', type: 'static', position: { x: 1200, y: 640 }, size: { width: 240, height: 40 } },
+          { id: 'p4', type: 'static', position: { x: 800, y: 480 }, size: { width: 240, height: 40 } },
+          { id: 'p5', type: 'static', position: { x: 400, y: 320 }, size: { width: 240, height: 40 } }
         ],
-        playerSpawn: { x: 100, y: 500 },
+        playerSpawn: { x: 200, y: 1000 },
         fugitive: {
           npcId: 'oldman',
-          card: { type: 'character', text: '老伯', suffix: '.jpg', size: { width: 50, height: 60 }, borderWidth: 2 },
-          spawn: { x: 600, y: 200 },
-          fleeSpeed: 180,
-          patrolPoints: [{ x: 600, y: 200 }, { x: 400, y: 200 }]
+          card: { type: 'character', text: '老伯', suffix: '.jpg', size: { width: 100, height: 120 }, borderWidth: 4 },
+          spawn: { x: 1200, y: 400 },
+          fleeSpeed: 360,
+          patrolPoints: [{ x: 1200, y: 400 }, { x: 800, y: 400 }]
         },
         caughtDialogue: [
           { speaker: '老伯', text: '好啦好啦,年轻人腿脚真快!' },

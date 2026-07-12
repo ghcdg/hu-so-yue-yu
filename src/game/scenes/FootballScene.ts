@@ -39,9 +39,9 @@ interface RewardZone {
 
 /** 三个奖励区域(来自目标句子关键字符) */
 const REWARD_ZONES: RewardZone[] = [
-  { word: '鱼', jyutping: 'jyu4', label: '垃圾桶', powerMin: 0, powerMax: 35, targetX: 230 },
-  { word: '跟', jyutping: 'gan1', label: '招牌', powerMin: 35, powerMax: 70, targetX: 400 },
-  { word: '冇', jyutping: 'mou5', label: '窗户', powerMin: 70, powerMax: 100, targetX: 570 }
+  { word: '鱼', jyutping: 'jyu4', label: '垃圾桶', powerMin: 0, powerMax: 35, targetX: 460 },
+  { word: '跟', jyutping: 'gan1', label: '招牌', powerMin: 35, powerMax: 70, targetX: 800 },
+  { word: '冇', jyutping: 'mou5', label: '窗户', powerMin: 70, powerMax: 100, targetX: 1140 }
 ]
 
 /** 力量条摆动速度(%/秒) */
@@ -77,36 +77,36 @@ export class FootballScene extends BaseSubScene {
     this.physics.world.setBounds(0, 0, worldW, worldH)
 
     // ── 地面 ──
-    const groundY = worldH - 30
-    this.add.rectangle(worldW / 2, groundY, worldW, 60, 0x2a2a3e)
-    const ground = this.add.zone(worldW / 2, groundY, worldW, 60)
+    const groundY = worldH - 60
+    this.add.rectangle(worldW / 2, groundY, worldW, 120, 0x2a2a3e)
+    const ground = this.add.zone(worldW / 2, groundY, worldW, 120)
     this.physics.add.existing(ground, true)
 
     // ── 场景标题 ──
     this.add
-      .text(worldW / 2, 20, '街角 · 踢足球', {
+      .text(worldW / 2, 40, '街角 · 踢足球', {
         fontFamily: 'Arial, "Microsoft YaHei", sans-serif',
-        fontSize: '20px',
+        fontSize: '40px',
         color: '#ffd166'
       })
       .setOrigin(0.5)
 
     // ── 落点标记(垃圾桶/招牌/窗户) ──
     for (const zone of REWARD_ZONES) {
-      const markerY = groundY - 25
-      this.add.rectangle(zone.targetX, markerY, 90, 30, 0x2a2a4e).setStrokeStyle(1, 0x555577)
+      const markerY = groundY - 50
+      this.add.rectangle(zone.targetX, markerY, 180, 60, 0x2a2a4e).setStrokeStyle(1, 0x555577)
       this.add
         .text(zone.targetX, markerY, zone.label, {
           fontFamily: 'Arial, "Microsoft YaHei", sans-serif',
-          fontSize: '12px',
+          fontSize: '28px',
           color: '#8888aa'
         })
         .setOrigin(0.5)
       // 奖励文字标签
       this.add
-        .text(zone.targetX, markerY - 22, zone.word, {
+        .text(zone.targetX, markerY - 44, zone.word, {
           fontFamily: 'Arial, "Microsoft YaHei", sans-serif',
-          fontSize: '16px',
+          fontSize: '32px',
           color: '#ffd166'
         })
         .setOrigin(0.5)
@@ -120,14 +120,14 @@ export class FootballScene extends BaseSubScene {
     ;(this.player.body as Phaser.Physics.Arcade.Body).setVelocityX(0)
 
     // ── 足球 ──
-    this.ball = this.add.circle(400, 530, 14, 0xffd166)
+    this.ball = this.add.circle(800, 1060, 28, 0xffd166)
     this.ball.setStrokeStyle(2, 0xffffff)
 
     // ── 力量条背景 ──
-    const barX = 440
-    const barY = 70
-    const barW = 400
-    const barH = 28
+    const barX = 880
+    const barY = 140
+    const barW = 800
+    const barH = 56
     this.powerBg = this.add.graphics()
     this.powerBg.fillStyle(0x333355, 1)
     this.powerBg.fillRoundedRect(barX, barY, barW, barH, 4)
@@ -138,18 +138,18 @@ export class FootballScene extends BaseSubScene {
 
     // ── 提示文字 ──
     this.stateText = this.add
-      .text(worldW / 2, 115, '按 E 开始踢球!', {
+      .text(worldW / 2, 230, '按 E 开始踢球!', {
         fontFamily: 'Arial, "Microsoft YaHei", sans-serif',
-        fontSize: '18px',
+        fontSize: '36px',
         color: '#ffd166'
       })
       .setOrigin(0.5)
 
     // ── HUD(剩余次数 + 最佳成绩) ──
     this.hudText = this.add
-      .text(worldW / 2, 145, '', {
+      .text(worldW / 2, 290, '', {
         fontFamily: 'Arial, "Microsoft YaHei", sans-serif',
-        fontSize: '14px',
+        fontSize: '28px',
         color: '#a0a0c0'
       })
       .setOrigin(0.5)
@@ -201,9 +201,9 @@ export class FootballScene extends BaseSubScene {
     this.powerBar.clear()
     const pct = this.powerValue / 100
     const color = pct > 0.7 ? 0xff4444 : pct > 0.35 ? 0xffd166 : 0x44ff44
-    const barW = 392 * pct
+    const barW = 784 * pct
     this.powerBar.fillStyle(color, 1)
-    this.powerBar.fillRoundedRect(444, 72, barW, 22, 3)
+    this.powerBar.fillRoundedRect(888, 144, barW, 44, 6)
   }
 
   /** 定格力量并踢球 */
@@ -215,12 +215,12 @@ export class FootballScene extends BaseSubScene {
     this.stateText.setText(`力量: ${power}%`)
 
     const zone = this.getRewardZone(this.powerValue)
-    const targetX = zone ? zone.targetX : 700 // 出界
+    const targetX = zone ? zone.targetX : 1400 // 出界
 
     // 球抛物线飞行
     const startX = this.ball.x
     const startY = this.ball.y
-    const groundY = this.footballConfig.worldSize.height - 44
+    const groundY = this.footballConfig.worldSize.height - 88
 
     this.tweens.add({
       targets: this.ball,
@@ -233,7 +233,7 @@ export class FootballScene extends BaseSubScene {
         this.ball.x = startX + (targetX - startX) * progress
         // 抛物线弧(Y 轴)
         const linearY = startY + (groundY - startY) * progress
-        const arcHeight = -180 * Math.sin(progress * Math.PI)
+        const arcHeight = -360 * Math.sin(progress * Math.PI)
         this.ball.y = linearY + arcHeight
       },
       onComplete: () => {
@@ -268,7 +268,7 @@ export class FootballScene extends BaseSubScene {
     if (this.attempts < this.maxAttempts) {
       // 重置足球,开始下一轮
       this.time.delayedCall(1200, () => {
-        this.ball.setPosition(400, 530)
+        this.ball.setPosition(800, 1060)
         this.startPowerCharge()
       })
     } else {

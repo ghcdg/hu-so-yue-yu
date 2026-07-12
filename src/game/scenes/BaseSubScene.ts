@@ -40,8 +40,8 @@ export interface SubSceneResult {
 export interface SubSceneConfig {
   id: string
   type: 'chase' | 'dialogue' | 'fight' | 'football'
-  /** 子场景结束后的回调 */
-  onComplete?: SubSceneResult['rewards']
+  /** 子场景结束后的回调数据 */
+  onComplete?: Record<string, any>
 }
 
 export abstract class BaseSubScene extends Phaser.Scene {

@@ -14,17 +14,17 @@
 import Phaser from 'phaser'
 import { TextSprite } from '@/game/objects/TextSprite'
 
-/** 子弹默认参数 */
-const BULLET_SIZE = 20
-const BULLET_SPEED = 400
+/** 子弹默认参数 — 2x 缩放 */
+const BULLET_SIZE = 40
+const BULLET_SPEED = 800
 const BULLET_LIFESPAN = 3000 // ms
 
-/** 子弹推飞玩家的力度参数 */
+/** 子弹推飞玩家的力度参数 — 2x 缩放 */
 export const BULLET_PUSH = {
   /** 水平推飞速度（远离子弹方向） */
-  horizontal: 600,
+  horizontal: 1200,
   /** 垂直上抛速度（负值=向上） */
-  vertical: -400
+  vertical: -800
 } as const
 
 export class Bullet extends TextSprite {
@@ -42,7 +42,7 @@ export class Bullet extends TextSprite {
       type: 'object',
       text: '弹',
       size: { width: BULLET_SIZE, height: BULLET_SIZE },
-      borderWidth: 2,
+      borderWidth: 4,
       textColor: '#00ffff',
       borderColor: '#00bfff'
     })

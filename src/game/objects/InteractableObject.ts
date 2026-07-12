@@ -59,8 +59,8 @@ export class InteractableObject extends TextSprite {
   playKickEffect(): void {
     this.scene.tweens.add({
       targets: this,
-      x: this.x + 80,
-      y: this.y - 40,
+      x: this.x + 160,
+      y: this.y - 80,
       alpha: 0,
       scale: 0.6,
       duration: 500,
@@ -72,17 +72,17 @@ export class InteractableObject extends TextSprite {
   /** 闪现提示动效(踢球后闪现文字) */
   playFlashHint(text: string): void {
     const hint = this.scene.add
-      .text(this.x, this.y - 60, text, {
+      .text(this.x, this.y - 120, text, {
         fontFamily: 'Arial, "Microsoft YaHei", sans-serif',
-        fontSize: '16px',
+        fontSize: '32px',
         color: '#ffd166',
         backgroundColor: 'rgba(0,0,0,0.7)',
-        padding: { x: 10, y: 6 }
+        padding: { x: 20, y: 12 }
       })
       .setOrigin(0.5)
     this.scene.tweens.add({
       targets: hint,
-      y: hint.y - 40,
+      y: hint.y - 80,
       alpha: 0,
       duration: 1500,
       ease: 'Cubic.easeOut',

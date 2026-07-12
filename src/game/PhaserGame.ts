@@ -6,7 +6,7 @@
  * 详见 TECH_ARCH.md 第四章
  */
 import Phaser from 'phaser'
-import { GAME_SIZE } from '@/shared/constants'
+import { GAME_SIZE, PHYSICS } from '@/shared/constants'
 import { BootScene } from './scenes/BootScene'
 import { PreloadScene } from './scenes/PreloadScene'
 import { LevelScene } from './scenes/LevelScene'
@@ -23,23 +23,40 @@ export function createPhaserGame(parent: HTMLElement): Phaser.Game {
   speakerManager.register(new WebSpeechSpeaker())
   speakerManager.register(new JyutpingSpeaker())
 
-  return new Phaser.Game({
+  const game = new Phaser.Game({
     type: Phaser.AUTO,
     parent,
     width: GAME_SIZE.WIDTH,
     height: GAME_SIZE.HEIGHT,
     backgroundColor: '#1a1a2e',
     scale: {
-      mode: Phaser.Scale.FIT,
+      mode: Phaser.Scale.NONE,
       autoCenter: Phaser.Scale.CENTER_BOTH
     },
     physics: {
       default: 'arcade',
       arcade: {
-        gravity: { x: 0, y: 1200 },
+        gravity: { x: 0, y: PHYSICS.GRAVITY },
         debug: false
       }
     },
     scene: [BootScene, PreloadScene, LevelScene, UIScene, ChaseScene, FootballScene]
   })
+
+  // 响应式 zoom: 一次缩放到位，避免 FIT 模式二次缩放导致文字模糊
+  // 窗口 >= 1280×720 时 cap 在 0.5（2x 像素密度），窗口更小时自适应填满
+  const updateZoom = () => {
+    const pw = game.scale.parent.clientWidth
+    const ph = game.scale.parent.clientHeight
+    const zoom = Math.min(pw / GAME_SIZE.WIDTH, ph / GAME_SIZE.HEIGHT, 0.5)
+    game.scale.setZoom(zoom)
+  }
+  updateZoom()
+  window.addEventListener('resize', updateZoom)
+  // 场景 shutdown 时移除监听
+  game.events.once('destroy', () => {
+    window.removeEventListener('resize', updateZoom)
+  })
+
+  return game
 }

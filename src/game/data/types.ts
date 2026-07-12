@@ -164,7 +164,6 @@ export interface ChaseSceneData {
     cooldownMs: number
   }
   platformBounce?: number
-  onComplete?: Record<string, any>
 }
 
 /** 区域数据(v0.2 新增,关卡可选分区域组织) */

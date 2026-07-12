@@ -77,10 +77,10 @@ export interface TextSpriteConfig {
   }
 }
 
-// 默认值
-const DEFAULT_WIDTH = 120
-const DEFAULT_HEIGHT = 80
-const DEFAULT_BORDER_WIDTH = 3
+// 默认值 — 2x 缩放
+const DEFAULT_WIDTH = 240
+const DEFAULT_HEIGHT = 160
+const DEFAULT_BORDER_WIDTH = 6
 const DEFAULT_SCROLL_SPEED = 5 // 字符/秒
 const SCROLL_SEPARATOR = '  ·  '
 const FONT_FAMILY = 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif'
@@ -190,7 +190,7 @@ export class TextSprite extends Phaser.GameObjects.Container {
     this.drawBorder()
 
     // ── 主文字 ──
-    const fontSize = Math.max(10, Math.min(this.cardWidth, this.cardHeight) * 0.22)
+    const fontSize = Math.max(28, Math.min(this.cardWidth, this.cardHeight) * 0.22)
     this.scrollFontSize = fontSize
     const isGif = this.suffix === '.gif'
     const textStyle: Phaser.Types.GameObjects.Text.TextStyle = {
@@ -201,7 +201,7 @@ export class TextSprite extends Phaser.GameObjects.Container {
     }
     // .gif 单行滚动,不用 wordWrap;其他类型启用 wordWrap 自动换行
     if (!isGif) {
-      textStyle.wordWrap = { width: this.cardWidth - this.borderWidth * 2 - 8 }
+      textStyle.wordWrap = { width: this.cardWidth - this.borderWidth * 2 - 16 }
     }
     this.mainText = scene.add
       .text(0, config.subtitle ? -this.cardHeight * 0.15 : 0, config.text, textStyle)
@@ -215,7 +215,7 @@ export class TextSprite extends Phaser.GameObjects.Container {
           fontSize: `${fontSize * 0.6}px`,
           color: colorToHex(textColor),
           align: 'center',
-          wordWrap: { width: this.cardWidth - this.borderWidth * 2 - 8 }
+          wordWrap: { width: this.cardWidth - this.borderWidth * 2 - 16 }
         })
         .setOrigin(0.5)
     }
@@ -225,7 +225,7 @@ export class TextSprite extends Phaser.GameObjects.Container {
 
     // ── 文字裁剪 mask(仅 .gif 模式,Graphics 放在 scene 层级避免遮文字) ──
     if (isGif) {
-      const innerPadding = this.borderWidth + 4
+      const innerPadding = this.borderWidth + 8
       this.maskGraphics = scene.add.graphics()
       this.maskGraphics.setPosition(x, y)
       this.maskGraphics.fillStyle(0xffffff, 1)
@@ -305,7 +305,7 @@ export class TextSprite extends Phaser.GameObjects.Container {
 
   /** 获取卡片内部可用区域(扣除边框后),供子类在卡片内定位内容 */
   protected getCardInnerBounds(): { x: number; y: number; width: number; height: number } {
-    const pad = this.borderWidth + 4
+    const pad = this.borderWidth + 8
     return {
       x: -this.cardWidth / 2 + pad,
       y: -this.cardHeight / 2 + pad,
@@ -435,7 +435,7 @@ export class TextSprite extends Phaser.GameObjects.Container {
     }
     // 中文约等宽,字符宽度 ≈ fontSize
     const charWidth = this.scrollFontSize
-    const innerWidth = this.cardWidth - this.borderWidth * 2 - 8
+    const innerWidth = this.cardWidth - this.borderWidth * 2 - 16
     this.scrollDisplayLength = Math.max(4, Math.floor(innerWidth / charWidth))
     // 重复 base 多次,确保滚动有足够内容
     const unitLen = base.length + SCROLL_SEPARATOR.length
@@ -472,7 +472,7 @@ export class TextSprite extends Phaser.GameObjects.Container {
     }
     this.mainText.setText(display)
     // 像素级偏移:向左移动 frac 个字符宽度,视觉上文字连续滚动
-    const innerWidth = this.cardWidth - this.borderWidth * 2 - 8
+    const innerWidth = this.cardWidth - this.borderWidth * 2 - 16
     this.mainText.x = -innerWidth / 2 - frac * this.scrollFontSize
   }
 

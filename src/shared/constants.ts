@@ -16,18 +16,19 @@ export const SCENE = {
   FOOTBALL: 'FootballScene'
 } as const
 
-/** 游戏画布尺寸(16:9) */
+/** 游戏画布尺寸(16:9) — 2x 内部渲染分辨率 */
 export const GAME_SIZE = {
-  WIDTH: 1280,
-  HEIGHT: 720
+  WIDTH: 2560,
+  HEIGHT: 1440
 } as const
 
-/** 物理常量(Arcade Physics) */
+/** 物理常量(Arcade Physics) — 2x 缩放 */
 export const PHYSICS = {
-  GRAVITY: 1200,
-  PLAYER_SPEED: 260,
-  JUMP_VELOCITY: -560,
-  DOUBLE_JUMP_VELOCITY: -480
+  GRAVITY: 2400,
+  PLAYER_SPEED: 520,
+  /** 跳跃速度 — 2x 缩放 + 5% 余量确保平台可达 */
+  JUMP_VELOCITY: -1160,
+  DOUBLE_JUMP_VELOCITY: -1000
 } as const
 
 /** 慢动作系统配置（v0.4）
@@ -74,14 +75,14 @@ export const COLORS = {
   HIGHLIGHT_BG_ALPHA: 0.35
 } as const
 
-/** 统一圆角半径(px) */
+/** 统一圆角半径(px) — 2x 缩放 */
 export const BORDER_RADIUS = {
   /** 小型卡片(金币/平台标签) */
-  SM: 4,
+  SM: 8,
   /** 中型卡片(对话/提示/NPC) */
-  MD: 6,
+  MD: 12,
   /** 大型卡片(揭示/结算) */
-  LG: 10
+  LG: 20
 } as const
 
 /**

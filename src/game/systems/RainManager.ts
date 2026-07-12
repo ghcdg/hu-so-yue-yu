@@ -41,8 +41,8 @@ export class RainManager {
     this.scene = scene
     this.config = {
       color: '#aaccff',
-      dropWidth: 3,
-      dropHeight: 12,
+      dropWidth: 6,
+      dropHeight: 24,
       ...config
     }
     this.createDrops()
@@ -80,10 +80,10 @@ export class RainManager {
 
     for (const drop of this.drops) {
       if (!drop.active) continue
-      if (drop.y > worldH + 20) {
+      if (drop.y > worldH + 40) {
         const body = drop.body as Phaser.Physics.Arcade.Body
         const newX = Phaser.Math.Between(0, worldW)
-        const newY = Phaser.Math.Between(-20, 0)
+        const newY = Phaser.Math.Between(-40, 0)
         // reset() 会重置 allowGravity 为 true,需手动关掉
         body.reset(newX, newY)
         body.setAllowGravity(false)

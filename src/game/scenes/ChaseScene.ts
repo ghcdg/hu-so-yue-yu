@@ -25,8 +25,7 @@ import { MovableNpc } from '@/game/objects/MovableNpc'
 import type { MovableNpcData } from '@/game/objects/MovableNpc'
 import { Bullet } from '@/game/objects/Bullet'
 import { TextSprite } from '@/game/objects/TextSprite'
-import type { TextSpriteConfig } from '@/game/objects/TextSprite'
-import type { PlatformData, DialogueData, ChaseSceneData } from '@/game/data/types'
+import type { ChaseSceneData } from '@/game/data/types'
 import { SlowMoManager } from '@/game/systems/SlowMoManager'
 import { RainManager } from '@/game/systems/RainManager'
 
@@ -74,7 +73,7 @@ export class ChaseScene extends BaseSubScene {
   /** 冻结倒计时文字(0.9→0.1) */
   private countdownText: Phaser.GameObjects.Text | null = null
   /** 场景中所有静态障碍物(用于视线检测) */
-  private obstacles: Phaser.Physics.Arcade.Sprite[] = []
+  private obstacles: Phaser.GameObjects.GameObject[] = []
 
   // ── 预测轨迹可视化 ──
   /** 最近一次预测结果(用于绘制轨迹) */
@@ -107,7 +106,7 @@ export class ChaseScene extends BaseSubScene {
     L2_DY: 2.2,              // 横向贴近 dy（100px）
     L3_DY: 1.8,              // 纵向贴近 dy（80px）
     L3_DX: 2.2,              // 纵向贴近 dx（100px）
-    L4_MARGIN: 10,           // 兜底保险固定余量（px）
+    L4_MARGIN: 20,           // 兜底保险固定余量（px）— 2x 缩放
 
     // ── 预测门控（L5/L6） ──
     L5_MINDIST: 0.33,        // 高置信度 minDist（15px）
@@ -117,7 +116,7 @@ export class ChaseScene extends BaseSubScene {
     L6_DIST: 4.0,            // 极小 dist（180px）
 
     // ── AI 下落（L7） ──
-    L7_VY: 300,              // AI 下落速度阈值（依赖 PHYSICS.GRAVITY，不可缩放）
+    L7_VY: 600,              // AI 下落速度阈值（依赖 PHYSICS.GRAVITY，×2 缩放）
     L7_DIST: 3.3,            // 下落距离（150px）
     L7_DX: 1.3,              // 下落水平偏移（60px）
 
@@ -148,9 +147,9 @@ export class ChaseScene extends BaseSubScene {
 
     // 场景标题
     this.add
-      .text(worldW / 2, 20, '追捕老伯!', {
+      .text(worldW / 2, 40, '追捕老伯!', {
         fontFamily: 'Arial, "Microsoft YaHei", sans-serif',
-        fontSize: '18px',
+        fontSize: '36px',
         color: '#ff6b6b'
       })
       .setOrigin(0.5)
@@ -203,7 +202,7 @@ export class ChaseScene extends BaseSubScene {
       dialogues: cfg.caughtDialogue,
       patrolPoints: cfg.fugitive.patrolPoints,
       fleeSpeed: cfg.fugitive.fleeSpeed * 2, // 双倍逃跑速度
-      chaseTriggerRadius: 200,
+      chaseTriggerRadius: 400,
       initialState: 'patrol',
       bullet: cfg.bullet
         ? {
@@ -240,7 +239,7 @@ export class ChaseScene extends BaseSubScene {
       (_obj1, obj2) => {
         const bullet = _obj1 as Bullet
         if (!bullet.active) return
-        bullet.pushPlayer(obj2)
+        bullet.pushPlayer(obj2 as Phaser.GameObjects.GameObject)
         bullet.destroy()
       }
     )
@@ -282,12 +281,12 @@ export class ChaseScene extends BaseSubScene {
 
     // 状态提示文字
     this.slowMoStatusText = this.add
-      .text(worldW / 2, worldH - 30, '追近逃跑者并跳跃触发子弹时间 | T键手动切换', {
+      .text(worldW / 2, worldH - 60, '追近逃跑者并跳跃触发子弹时间 | T键手动切换', {
         fontFamily: 'Arial, "Microsoft YaHei", sans-serif',
-        fontSize: '14px',
+        fontSize: '28px',
         color: '#ffffff',
         backgroundColor: 'rgba(0,0,0,0.6)',
-        padding: { x: 10, y: 4 }
+        padding: { x: 20, y: 8 }
       })
       .setOrigin(0.5)
       .setDepth(100)
@@ -343,7 +342,7 @@ export class ChaseScene extends BaseSubScene {
     targetX: number,
     targetY: number
   ): void {
-    const bullet = new Bullet(this, fromX, fromY - 15, targetX, targetY)
+    const bullet = new Bullet(this, fromX, fromY - 30, targetX, targetY)
     this.bulletsGroup.add(bullet)
   }
 
@@ -379,10 +378,10 @@ export class ChaseScene extends BaseSubScene {
 
     // 创建对话卡片(底部)
     const { height: worldH } = this.chaseConfig.worldSize
-    this.dialogueBox = new TextSprite(this, 400, worldH - 60, {
+    this.dialogueBox = new TextSprite(this, 800, worldH - 120, {
       type: 'dialogue',
       text: `${line.speaker}: ${line.text}`,
-      size: { width: 700, height: 80 },
+      size: { width: 1400, height: 160 },
       borderWidth: 2
     })
 
@@ -418,6 +417,7 @@ export class ChaseScene extends BaseSubScene {
     const dist = Math.sqrt(dx * dx + dy * dy)
 
     const isAirborne = !playerBody.blocked.down && !playerBody.touching.down
+    const fugitiveAirborne = !fugitiveBody.blocked.down && !fugitiveBody.touching.down
     const los = this.hasClearLineOfSight()
 
     // 碰撞距离(body半宽和 + 5px容差) — 所有像素阈值的基准
@@ -449,31 +449,43 @@ export class ChaseScene extends BaseSubScene {
     }
 
     // ═══════════════════════════════
-    // 障碍物检测: 检查预测轨迹是否穿过平台
-    // 穿过 → 预测不可靠(AI 会被平台截停)，跳过 L5/L6/L7/L8，仅保留 L1-L4 纯距离触发
+    // 障碍物检测: 检查 AI 和玩家预测轨迹是否穿过平台
+    // AI 被挡：AI 跑不掉，但玩家可以追过去 → 玩家仍然能抓住 AI; 玩家被挡：玩家自己过不去 → 玩家根本抓不到 AI
+    // AI 穿过 → 预测不可靠(AI 会被平台截停)，跳过 L5/L6/L7/L8
+    // 玩家穿过 → 预测不可靠(玩家会被平台截停)，跳过 L1-L8 预测相关触发
     // ═══════════════════════════════
     const trajectoryHitsObstacle = this.doesPredictedTrajectoryHitObstacle()
+    const playerTrajectoryHitsObstacle = this.doesPlayerTrajectoryHitObstacle()
+    // 预测可靠: 双方轨迹都不穿过障碍物
+    const predictionOk = !trajectoryHitsObstacle && !playerTrajectoryHitsObstacle
+
     if (trajectoryHitsObstacle) {
-      console.log(`[BT] OBSTACLE-HIT dist=${dist.toFixed(0)} dx=${dx.toFixed(0)} dy=${dy.toFixed(0)} isAir=1 los=1 ` +
-        `minDist=${pred.minDist.toFixed(1)} — prediction unreliable, fallback to L1-L4 only`)
+      console.log(`[BT] AI-OBSTACLE-HIT dist=${dist.toFixed(0)} dx=${dx.toFixed(0)} dy=${dy.toFixed(0)} isAir=1 los=1 ` +
+        `minDist=${pred.minDist.toFixed(1)} — AI trajectory blocked, skip L5-L8`)
+    }
+    if (playerTrajectoryHitsObstacle) {
+      console.log(`[BT] PLAYER-OBSTACLE-HIT dist=${dist.toFixed(0)} dx=${dx.toFixed(0)} dy=${dy.toFixed(0)} isAir=1 los=1 ` +
+        `minDist=${pred.minDist.toFixed(1)} — player trajectory blocked, skip L1-L8`)
     }
 
     // ═══════════════════════════════
     // 多维度距离门控: 预测交汇 + 当前距离贴近
-    // L1-L4: 纯距离门控(不依赖预测，始终可用)
+    // L1-L3: 纯距离门控 — 仅在 fugitiveAirborne 或 predictionOk 时可用
+    //   (玩家轨迹穿过障碍物时，近距触发也是虚的，玩家实际追不上)
     // L5/L6/L7/L8: 基于预测的触发(仅在轨迹不穿过障碍物时可用)
     // ═══════════════════════════════
     let level = 0
-    if (dist < cd * BT.L1_DIST) {
+    const canUseL1L3 = fugitiveAirborne || predictionOk
+    if (canUseL1L3 && dist < cd * BT.L1_DIST) {
       level = 1 // 斜线贴近(综合距离最近)
-    } else if (dx < cd * BT.L2_DX && dy < cd * BT.L2_DY) {
+    } else if (canUseL1L3 && dx < cd * BT.L2_DX && dy < cd * BT.L2_DY) {
       level = 2 // 横向贴近 + 垂直不乱
-    } else if (dy < cd * BT.L3_DY && dx < cd * BT.L3_DX) {
+    } else if (canUseL1L3 && dy < cd * BT.L3_DY && dx < cd * BT.L3_DX) {
       level = 3 // 纵向贴近 + 水平不乱
     }
 
-    // ── 基于预测的触发(仅轨迹不穿过障碍物时) ──
-    if (!trajectoryHitsObstacle) {
+    // ── 基于预测的触发(仅双方轨迹都可靠时) ──
+    if (predictionOk) {
       if (level === 0 && pred.minDist < cd * BT.L5_MINDIST && dist < cd * BT.L5_DIST) {
         // L5: 高置信度预测 + 非对角接近
         const aspectRatio = Math.max(dx, dy) / Math.max(Math.min(dx, dy), 1)
@@ -600,14 +612,14 @@ export class ChaseScene extends BaseSubScene {
 
     // 跳过 NPC 当前所在平台（与 hasClearLineOfSight 一致）
     const npcBottom = this.fugitive.y + fugitiveBody.halfHeight
-    const skipPlatforms = new Set<Phaser.Physics.Arcade.Sprite>()
+    const skipPlatforms = new Set<Phaser.GameObjects.GameObject>()
     for (const obs of this.obstacles) {
       if (!obs.body) continue
       const bounds = (obs.body as Phaser.Physics.Arcade.Body).getBounds(
         new Phaser.Geom.Rectangle()
       )
       if (
-        Math.abs(bounds.top - npcBottom) < 15 &&
+        Math.abs(bounds.y - npcBottom) < 30 &&
         this.fugitive.x >= bounds.x &&
         this.fugitive.x <= bounds.right
       ) {
@@ -644,6 +656,70 @@ export class ChaseScene extends BaseSubScene {
     return false
   }
 
+  /** 检查玩家预测轨迹是否穿过任何障碍物（平台）
+   *  在预测的 60 帧中逐段检测玩家预测位置是否穿过障碍物边界。
+   *  如果穿过，说明预测不可靠（玩家会被平台截停），应跳过所有基于预测/距离的触发（L1-L8）。
+   *  跳过玩家起跳平台（与 hasClearLineOfSight 规则2一致）。 */
+  private doesPlayerTrajectoryHitObstacle(): boolean {
+    const playerBody = this.player.body as Phaser.Physics.Arcade.Body
+
+    const px = this.player.x
+    const py = this.player.y
+    const pvx = playerBody.velocity.x
+    const pvy = playerBody.velocity.y
+
+    const dt = ChaseScene.PHYSICS_DT
+    const g = PHYSICS.GRAVITY
+
+    // 跳过玩家起跳平台（与 hasClearLineOfSight 规则2一致）
+    const playerBottom = this.player.y + playerBody.halfHeight
+    const cd = (playerBody.halfWidth + (this.fugitive.body as Phaser.Physics.Arcade.Body).halfWidth) + 5
+    const platformAlign = cd * ChaseScene.BT.LOS_PLATFORM
+
+    const skipPlatforms = new Set<Phaser.GameObjects.GameObject>()
+    for (const obs of this.obstacles) {
+      if (!obs.body) continue
+      const bounds = (obs.body as Phaser.Physics.Arcade.Body).getBounds(
+        new Phaser.Geom.Rectangle()
+      )
+      if (
+        Math.abs(bounds.y - playerBottom) < platformAlign &&
+        this.player.x >= bounds.x &&
+        this.player.x <= bounds.right
+      ) {
+        skipPlatforms.add(obs)
+      }
+    }
+
+    let prevX = px
+    let prevY = py
+
+    for (let i = 1; i <= ChaseScene.PREDICTION_FRAMES; i++) {
+      const t = i * dt
+      const predPx = px + pvx * t
+      const predPy = py + pvy * t + 0.5 * g * t * t
+
+      const segment = new Phaser.Geom.Line(prevX, prevY, predPx, predPy)
+
+      for (const obs of this.obstacles) {
+        if (skipPlatforms.has(obs)) continue
+        if (!obs.body) continue
+        const bounds = (obs.body as Phaser.Physics.Arcade.Body).getBounds(
+          new Phaser.Geom.Rectangle()
+        )
+
+        if (Phaser.Geom.Intersects.LineToRectangle(segment, bounds)) {
+          return true
+        }
+      }
+
+      prevX = predPx
+      prevY = predPy
+    }
+
+    return false
+  }
+
   /** 检查玩家→逃跑者之间是否有障碍物阻挡视线（身体中心连线）
    *  跳过三类障碍物：
    *  1. NPC 脚下平台（障碍物顶部对齐 NPC 底部，且 NPC 在水平范围内）
@@ -674,14 +750,14 @@ export class ChaseScene extends BaseSubScene {
 
       // 规则1: 跳过 NPC 脚下平台 — 障碍物顶部对齐 NPC 底部 且 NPC 在水平范围内
       const npcOnThisPlatform =
-        Math.abs(bounds.top - npcBottom) < platformAlign &&
+        Math.abs(bounds.y - npcBottom) < platformAlign &&
         this.fugitive.x >= bounds.x &&
         this.fugitive.x <= bounds.right
       if (npcOnThisPlatform) continue
 
       // 规则2: 跳过玩家脚下平台 — 障碍物顶部对齐玩家底部 且玩家在水平范围内
       const playerOnThisPlatform =
-        Math.abs(bounds.top - playerBottom) < platformAlign &&
+        Math.abs(bounds.y - playerBottom) < platformAlign &&
         this.player.x >= bounds.x &&
         this.player.x <= bounds.right
       if (playerOnThisPlatform) continue
@@ -729,9 +805,9 @@ export class ChaseScene extends BaseSubScene {
     // 闪现目标: player 对面, 空中高处, 由物理引擎自然落地
     const playerX = this.player.x
     const targetX = playerX < worldW / 2
-      ? worldW - 100   // player 在左边 → 闪现到右边
-      : 100             // player 在右边 → 闪现到左边
-    const targetY = 100
+      ? worldW - 200   // player 在左边 → 闪现到右边
+      : 200             // player 在右边 → 闪现到左边
+    const targetY = 200
 
     // 同时更新 Container 和 body 位置(防止冻结期间被捕获)
     this.fugitive.x = targetX
@@ -940,7 +1016,7 @@ export class ChaseScene extends BaseSubScene {
     this.countdownText = this.add
       .text(worldW / 2, worldH / 2, '0.9', {
         fontFamily: 'Arial, "Microsoft YaHei", sans-serif',
-        fontSize: '56px',
+        fontSize: '112px',
         color: '#ffffff',
         stroke: '#000000',
         strokeThickness: 5
@@ -980,9 +1056,9 @@ export class ChaseScene extends BaseSubScene {
   /** 闪现提示: 在逃跑者出现位置显示 "闪现!" 文字并淡出 */
   private showFlashHint(x: number, y: number): void {
     const hint = this.add
-      .text(x, y - 40, '闪现!', {
+      .text(x, y - 80, '闪现!', {
         fontFamily: 'Arial, "Microsoft YaHei", sans-serif',
-        fontSize: '28px',
+        fontSize: '56px',
         color: '#ffff00',
         stroke: '#000000',
         strokeThickness: 4
@@ -993,7 +1069,7 @@ export class ChaseScene extends BaseSubScene {
     this.tweens.add({
       targets: hint,
       alpha: 0,
-      y: y - 80,
+      y: y - 160,
       duration: 600,
       ease: 'Power2',
       onComplete: () => hint.destroy()

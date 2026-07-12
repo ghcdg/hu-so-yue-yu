@@ -34,12 +34,12 @@ export interface PlayerState {
   jumpsRemaining: number
 }
 
-/** 默认玩家尺寸 */
-const PLAYER_W = 40
-const PLAYER_H = 60
+/** 默认玩家尺寸 — 2x 缩放 */
+const PLAYER_W = 80
+const PLAYER_H = 120
 const CROUCH_SCALE_Y = 0.6
 /** 水平阻力(松手滑行衰减,值越小滑行越远) */
-const DRAG_X = 600
+const DRAG_X = 1200
 
 export class Player extends Phaser.GameObjects.Container implements StateTextSource {
   private sprite: TextSprite
@@ -73,7 +73,7 @@ export class Player extends Phaser.GameObjects.Container implements StateTextSou
       text: '阿粤',
       suffix: '.jpg',
       size: { width: PLAYER_W, height: PLAYER_H },
-      borderWidth: 2
+      borderWidth: 4
     })
     this.add(this.sprite)
 

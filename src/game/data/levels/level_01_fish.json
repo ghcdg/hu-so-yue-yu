@@ -8,111 +8,111 @@
     "mandarin": "做人如果没有梦想,那跟咸鱼有什么分别?",
     "source": "周星驰《少林足球》"
   },
-  "worldSize": { "width": 2400, "height": 720 },
-  "spawn": { "x": 120, "y": 600 },
+  "worldSize": { "width": 4800, "height": 1440 },
+  "spawn": { "x": 240, "y": 1200 },
   "ground": {
-    "position": { "x": 1200, "y": 700 },
-    "size": { "width": 2400, "height": 40 },
+    "position": { "x": 2400, "y": 1400 },
+    "size": { "width": 4800, "height": 80 },
     "card": { "type": "object", "text": "地板", "suffix": ".jpg" }
   },
   "platforms": [
     {
       "id": "platform_work",
       "type": "static",
-      "position": { "x": 280, "y": 560 },
-      "size": { "width": 160, "height": 20 },
+      "position": { "x": 560, "y": 1120 },
+      "size": { "width": 320, "height": 40 },
       "card": { "type": "object", "text": "打工平台", "suffix": ".jpg" }
     },
     {
       "id": "platform_fish",
       "type": "static",
-      "position": { "x": 520, "y": 500 },
-      "size": { "width": 160, "height": 20 },
+      "position": { "x": 1040, "y": 1000 },
+      "size": { "width": 320, "height": 40 },
       "card": { "type": "object", "text": "咸鱼平台", "suffix": ".jpg" }
     },
     {
       "id": "platform_equal_sign",
       "type": "static",
-      "position": { "x": 760, "y": 440 },
-      "size": { "width": 120, "height": 20 },
+      "position": { "x": 1520, "y": 880 },
+      "size": { "width": 240, "height": 40 },
       "card": { "type": "object", "text": "等号", "suffix": ".jpg" }
     },
     {
       "id": "platform_question",
       "type": "static",
-      "position": { "x": 760, "y": 340 },
-      "size": { "width": 100, "height": 20 },
+      "position": { "x": 1520, "y": 680 },
+      "size": { "width": 200, "height": 40 },
       "card": { "type": "object", "text": "问号", "suffix": ".jpg", "animation": "shake" }
     },
     {
       "id": "platform_ball",
       "type": "static",
-      "position": { "x": 1000, "y": 460 },
-      "size": { "width": 140, "height": 20 },
+      "position": { "x": 2000, "y": 920 },
+      "size": { "width": 280, "height": 40 },
       "card": { "type": "object", "text": "街角", "suffix": ".jpg" }
     },
     {
       "id": "platform_temple_low",
       "type": "static",
-      "position": { "x": 1240, "y": 480 },
-      "size": { "width": 160, "height": 20 },
+      "position": { "x": 2480, "y": 960 },
+      "size": { "width": 320, "height": 40 },
       "card": { "type": "object", "text": "山路", "suffix": ".jpg" }
     },
     {
       "id": "platform_temple_high",
       "type": "static",
-      "position": { "x": 1240, "y": 360 },
-      "size": { "width": 160, "height": 20 },
+      "position": { "x": 2480, "y": 720 },
+      "size": { "width": 320, "height": 40 },
       "card": { "type": "object", "text": "少林路", "suffix": ".jpg" }
     },
     {
       "id": "platform_star_plaza",
       "type": "static",
-      "position": { "x": 1500, "y": 560 },
-      "size": { "width": 200, "height": 20 },
+      "position": { "x": 3000, "y": 1120 },
+      "size": { "width": 400, "height": 40 },
       "card": { "type": "object", "text": "小广场", "suffix": ".jpg" }
     },
     {
       "id": "platform_challenge_1",
       "type": "static",
-      "position": { "x": 1800, "y": 480 },
-      "size": { "width": 100, "height": 20 },
+      "position": { "x": 3600, "y": 960 },
+      "size": { "width": 200, "height": 40 },
       "card": { "type": "object", "text": "砖块1", "suffix": ".jpg" }
     },
     {
       "id": "platform_challenge_2",
       "type": "static",
-      "position": { "x": 1950, "y": 380 },
-      "size": { "width": 100, "height": 20 },
+      "position": { "x": 3900, "y": 760 },
+      "size": { "width": 200, "height": 40 },
       "card": { "type": "object", "text": "砖块2", "suffix": ".jpg" }
     },
     {
       "id": "platform_challenge_3",
       "type": "static",
-      "position": { "x": 2100, "y": 280 },
-      "size": { "width": 100, "height": 20 },
+      "position": { "x": 4200, "y": 560 },
+      "size": { "width": 200, "height": 40 },
       "card": { "type": "object", "text": "砖块3", "suffix": ".jpg" }
     },
     {
       "id": "platform_reveal",
       "type": "static",
-      "position": { "x": 2250, "y": 200 },
-      "size": { "width": 200, "height": 20 },
+      "position": { "x": 4500, "y": 400 },
+      "size": { "width": 400, "height": 40 },
       "card": { "type": "object", "text": "揭示平台", "suffix": ".jpg" }
     }
   ],
   "coins": [
-    { "id": "coin_leoi6", "position": { "x": 280, "y": 520 }, "word": "累", "jyutping": "leoi6" },
-    { "id": "coin_haam4", "position": { "x": 520, "y": 460 }, "word": "咸", "jyutping": "haam4" },
-    { "id": "coin_gung1", "position": { "x": 1240, "y": 320 }, "word": "功", "jyutping": "gung1" },
-    { "id": "coin_mung6", "position": { "x": 1500, "y": 520 }, "word": "梦", "jyutping": "mung6" },
-    { "id": "coin_soeng2", "position": { "x": 2100, "y": 240 }, "word": "想", "jyutping": "soeng2" }
+    { "id": "coin_leoi6", "position": { "x": 560, "y": 1040 }, "word": "累", "jyutping": "leoi6" },
+    { "id": "coin_haam4", "position": { "x": 1040, "y": 920 }, "word": "咸", "jyutping": "haam4" },
+    { "id": "coin_gung1", "position": { "x": 2480, "y": 640 }, "word": "功", "jyutping": "gung1" },
+    { "id": "coin_mung6", "position": { "x": 3000, "y": 1040 }, "word": "梦", "jyutping": "mung6" },
+    { "id": "coin_soeng2", "position": { "x": 4200, "y": 480 }, "word": "想", "jyutping": "soeng2" }
   ],
   "npcs": [
     {
       "id": "npc_oldMan",
       "card": { "type": "character", "text": "老伯", "suffix": ".jpg" },
-      "position": { "x": 150, "y": 660 },
+      "position": { "x": 300, "y": 1320 },
       "dialogues": [
         { "speaker": "老伯", "text": "小伙子,看你这样子,刚下班?" },
         { "speaker": "老伯", "text": "天天加班,感觉自己像条咸鱼?" },
@@ -122,7 +122,7 @@
     {
       "id": "npc_star",
       "card": { "type": "character", "text": "星爷", "suffix": ".jpg" },
-      "position": { "x": 1500, "y": 510 },
+      "position": { "x": 3000, "y": 1020 },
       "dialogues": [
         { "speaker": "星爷", "text": "年轻人,我看你骨骼精奇,是个练武奇才。" },
         { "speaker": "星爷", "text": "打工人也可以有梦想啊。" },
@@ -138,7 +138,7 @@
         "type": "object", "text": "挂着的咸鱼", "suffix": ".gif",
         "scrollSpeed": 4, "interactable": true, "interactHint": "按 E 踢一脚"
       },
-      "position": { "x": 520, "y": 420 },
+      "position": { "x": 1040, "y": 840 },
       "action": "kick_fish",
       "revealCoinId": "coin_haam4"
     },
@@ -149,7 +149,7 @@
         "interactable": true, "interactHint": "按 E 踢一脚",
         "highlight": true
       },
-      "position": { "x": 1000, "y": 420 },
+      "position": { "x": 2000, "y": 840 },
       "action": "kick_football"
     },
     {
@@ -158,7 +158,7 @@
         "type": "object", "text": "挂着的咸鱼", "suffix": ".gif",
         "scrollSpeed": 5, "interactable": true, "interactHint": "按 E 踢一脚"
       },
-      "position": { "x": 1950, "y": 340 },
+      "position": { "x": 3900, "y": 680 },
       "action": "kick_fish"
     },
     {
@@ -168,7 +168,7 @@
         "interactable": true, "interactHint": "按 E 踢一脚",
         "animation": "glow"
       },
-      "position": { "x": 1620, "y": 480 },
+      "position": { "x": 3240, "y": 960 },
       "action": "hidden_shoe"
     }
   ],
@@ -179,14 +179,14 @@
       "setup": {
         "hintCard": {
           "type": "hint", "text": "高人即将出现...", "suffix": ".jpg",
-          "size": { "width": 320, "height": 60 }
+          "size": { "width": 640, "height": 120 }
         },
         "delayMs": 1500
       },
       "reveal": {
         "characterCard": {
           "type": "character", "text": "星爷", "suffix": ".gif",
-          "scrollSpeed": 6, "size": { "width": 140, "height": 180 }
+          "scrollSpeed": 6, "size": { "width": 280, "height": 360 }
         },
         "scrollText": "做人如果冇梦想,跟咸鱼有咩分别?"
       },
@@ -204,15 +204,15 @@
     }
   ],
   "zones": [
-    { "id": "zone_work", "name": "打工", "bounds": { "x": 0, "y": 0, "width": 400, "height": 720 }, "checkpoint": { "x": 280, "y": 540 } },
-    { "id": "zone_fish", "name": "咸鱼", "bounds": { "x": 400, "y": 0, "width": 300, "height": 720 }, "checkpoint": { "x": 520, "y": 480 } },
-    { "id": "zone_corner", "name": "街角", "bounds": { "x": 700, "y": 0, "width": 400, "height": 720 }, "checkpoint": { "x": 1000, "y": 660 } },
-    { "id": "zone_effort", "name": "功夫", "bounds": { "x": 1100, "y": 0, "width": 300, "height": 720 }, "checkpoint": { "x": 1240, "y": 320 } },
-    { "id": "zone_dream", "name": "梦想", "bounds": { "x": 1400, "y": 0, "width": 300, "height": 720 }, "checkpoint": { "x": 1500, "y": 660 } },
-    { "id": "zone_challenge", "name": "挑战", "bounds": { "x": 1700, "y": 0, "width": 400, "height": 720 }, "checkpoint": { "x": 2100, "y": 260 } },
-    { "id": "zone_reveal", "name": "揭示", "bounds": { "x": 2100, "y": 0, "width": 300, "height": 720 }, "checkpoint": { "x": 2250, "y": 180 } }
+    { "id": "zone_work", "name": "打工", "bounds": { "x": 0, "y": 0, "width": 800, "height": 1440 }, "checkpoint": { "x": 560, "y": 1080 } },
+    { "id": "zone_fish", "name": "咸鱼", "bounds": { "x": 800, "y": 0, "width": 600, "height": 1440 }, "checkpoint": { "x": 1040, "y": 960 } },
+    { "id": "zone_corner", "name": "街角", "bounds": { "x": 1400, "y": 0, "width": 800, "height": 1440 }, "checkpoint": { "x": 2000, "y": 1320 } },
+    { "id": "zone_effort", "name": "功夫", "bounds": { "x": 2200, "y": 0, "width": 600, "height": 1440 }, "checkpoint": { "x": 2480, "y": 640 } },
+    { "id": "zone_dream", "name": "梦想", "bounds": { "x": 2800, "y": 0, "width": 600, "height": 1440 }, "checkpoint": { "x": 3000, "y": 1320 } },
+    { "id": "zone_challenge", "name": "挑战", "bounds": { "x": 3400, "y": 0, "width": 800, "height": 1440 }, "checkpoint": { "x": 4200, "y": 520 } },
+    { "id": "zone_reveal", "name": "揭示", "bounds": { "x": 4200, "y": 0, "width": 600, "height": 1440 }, "checkpoint": { "x": 4500, "y": 360 } }
   ],
-  "revealPosition": { "x": 2250, "y": 160 },
+  "revealPosition": { "x": 4500, "y": 320 },
   "requireCoins": 5,
   "lockedHint": "还需收集汉字才能登台!每个金币是一个汉字哦~",
   "totalCoins": 5,
@@ -228,28 +228,28 @@
   "chaseScene": {
     "id": "chase_oldman",
     "type": "chase",
-    "worldSize": { "width": 800, "height": 600 },
+    "worldSize": { "width": 1600, "height": 1200 },
     "platforms": [
-      { "id": "cp_l1_left", "type": "static", "position": { "x": 150, "y": 500 }, "size": { "width": 160, "height": 20 } },
-      { "id": "cp_l1_mid", "type": "static", "position": { "x": 400, "y": 440 }, "size": { "width": 140, "height": 20 } },
-      { "id": "cp_l1_right", "type": "static", "position": { "x": 650, "y": 500 }, "size": { "width": 160, "height": 20 } },
-      { "id": "cp_l2_left", "type": "static", "position": { "x": 250, "y": 360 }, "size": { "width": 140, "height": 20 } },
-      { "id": "cp_l2_right", "type": "static", "position": { "x": 550, "y": 360 }, "size": { "width": 140, "height": 20 } },
-      { "id": "cp_l3_mid", "type": "static", "position": { "x": 400, "y": 260 }, "size": { "width": 140, "height": 20 } },
-      { "id": "cp_l4_left", "type": "static", "position": { "x": 200, "y": 160 }, "size": { "width": 120, "height": 20 } },
-      { "id": "cp_l4_right", "type": "static", "position": { "x": 600, "y": 160 }, "size": { "width": 120, "height": 20 } },
-      { "id": "cp_wall_left", "type": "static", "position": { "x": 300, "y": 410 }, "size": { "width": 30, "height": 80 } },
-      { "id": "cp_wall_right", "type": "static", "position": { "x": 500, "y": 310 }, "size": { "width": 30, "height": 80 } }
+      { "id": "cp_l1_left", "type": "static", "position": { "x": 300, "y": 1000 }, "size": { "width": 320, "height": 40 } },
+      { "id": "cp_l1_mid", "type": "static", "position": { "x": 800, "y": 880 }, "size": { "width": 280, "height": 40 } },
+      { "id": "cp_l1_right", "type": "static", "position": { "x": 1300, "y": 1000 }, "size": { "width": 320, "height": 40 } },
+      { "id": "cp_l2_left", "type": "static", "position": { "x": 500, "y": 720 }, "size": { "width": 280, "height": 40 } },
+      { "id": "cp_l2_right", "type": "static", "position": { "x": 1100, "y": 720 }, "size": { "width": 280, "height": 40 } },
+      { "id": "cp_l3_mid", "type": "static", "position": { "x": 800, "y": 520 }, "size": { "width": 280, "height": 40 } },
+      { "id": "cp_l4_left", "type": "static", "position": { "x": 400, "y": 320 }, "size": { "width": 240, "height": 40 } },
+      { "id": "cp_l4_right", "type": "static", "position": { "x": 1200, "y": 320 }, "size": { "width": 240, "height": 40 } },
+      { "id": "cp_wall_left", "type": "static", "position": { "x": 600, "y": 820 }, "size": { "width": 60, "height": 160 } },
+      { "id": "cp_wall_right", "type": "static", "position": { "x": 1000, "y": 620 }, "size": { "width": 60, "height": 160 } }
     ],
-    "playerSpawn": { "x": 100, "y": 500 },
+    "playerSpawn": { "x": 200, "y": 1000 },
     "fugitive": {
       "npcId": "oldman",
-      "card": { "type": "character", "text": "老伯", "suffix": ".jpg", "size": { "width": 50, "height": 60 }, "borderWidth": 2 },
-      "spawn": { "x": 600, "y": 120 },
-      "fleeSpeed": 180,
+      "card": { "type": "character", "text": "老伯", "suffix": ".jpg", "size": { "width": 100, "height": 120 }, "borderWidth": 2 },
+      "spawn": { "x": 1200, "y": 240 },
+      "fleeSpeed": 360,
       "patrolPoints": [
-        { "x": 600, "y": 120 },
-        { "x": 400, "y": 220 }
+        { "x": 1200, "y": 240 },
+        { "x": 800, "y": 440 }
       ]
     },
     "caughtDialogue": [
@@ -262,7 +262,7 @@
     },
     "bullet": {
       "count": 5,
-      "shootRange": 100,
+      "shootRange": 200,
       "cooldownMs": 500
     },
     "platformBounce": 0.6,

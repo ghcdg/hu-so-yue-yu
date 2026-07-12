@@ -91,7 +91,7 @@ export class MovableNpc extends Npc implements StateTextSource {
     const body = this.body as Phaser.Physics.Arcade.Body
     body.setCollideWorldBounds(true)
     body.setBounce(0, 0)
-    body.setDragX(200)
+    body.setDragX(400)
     this.body2 = body
 
     // 注册到场景 update
@@ -192,14 +192,14 @@ export class MovableNpc extends Npc implements StateTextSource {
     this.body2.setVelocityX(
       (dx / dist) * this.fleeSpeed * scale
     )
-    // 主动跳跃:玩家在上方(高于 NPC 50px 以上)且 NPC 着地 → 跳
+    // 主动跳跃:玩家在上方(高于 NPC 100px 以上)且 NPC 着地 → 跳
     const grounded = this.body2.blocked.down || this.body2.touching.down
-    if (grounded && dy > 50) {
-      this.body2.setVelocityY(-480 * scale)
+    if (grounded && dy > 100) {
+      this.body2.setVelocityY(-960 * scale)
     }
     // 遇到障碍时尝试跳跃
     if (this.body2.blocked.left || this.body2.blocked.right) {
-      this.body2.setVelocityY(-420 * scale)
+      this.body2.setVelocityY(-840 * scale)
     }
   }
 

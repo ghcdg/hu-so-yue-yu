@@ -26,8 +26,8 @@ export class Coin extends TextSprite {
       text: word,
       subtitle: '粤语金币',
       suffix: '.jpg',
-      size: { width: 40, height: 40 },
-      borderWidth: 2,
+      size: { width: 80, height: 80 },
+      borderWidth: 4,
       animation: 'bounce'
     })
     this.word = word
