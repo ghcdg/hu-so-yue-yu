@@ -1,12 +1,12 @@
 /**
- * Player - 主角阿粤
+ * Player - 主角某人
  *
  * 设计依据:
- * - GAME_DESIGN.md 第二章(平台跳跃系统)+ 第十章 10.1(主角阿粤)
+ * - GAME_DESIGN.md 第二章(平台跳跃系统)+ 第十章 10.1(主角某人)
  * - TECH_ARCH.md 物理常量
  * - DESIGN_PHILOSOPHY.md 原则2(流畅性优先)
  *
- * 视觉:用 TextSprite(character 类型)"阿粤.jpg" 代替立绘
+ * 视觉:用 TextSprite(character 类型)"某人.jpg" 代替立绘
  * 物理:Arcade Physics,重力 1200,二段跳 buff 可启用
  *
  * 操作(对应 GAME_DESIGN 2.1):
@@ -67,10 +67,10 @@ export class Player extends Phaser.GameObjects.Container implements StateTextSou
   constructor(scene: Phaser.Scene, x: number, y: number) {
     super(scene, x, y)
 
-    // 视觉:伪图卡片 "阿粤.jpg"
+    // 视觉:伪图卡片 "某人.jpg"
     this.sprite = new TextSprite(scene, 0, 0, {
       type: 'character',
-      text: '阿粤',
+      text: '某人',
       suffix: '.jpg',
       size: { width: PLAYER_W, height: PLAYER_H },
       borderWidth: 4

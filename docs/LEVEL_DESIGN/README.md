@@ -1,4 +1,4 @@
-# 狐嗦粤语 — 关卡设计 (LEVEL_DESIGN)
+# 狐嗦学园 — 关卡设计 (LEVEL_DESIGN)
 
 > 本目录存放各关卡的设计文档。
 > 通用玩法系统见 [../GAME_DESIGN.md](../GAME_DESIGN.md),

@@ -1,4 +1,4 @@
-# 狐嗦粤语 — 技术架构文档 (TECH_ARCH)
+# 狐嗦学园 — 技术架构文档 (TECH_ARCH)
 
 > 本文档定义 Vue 3 + Phaser 的技术架构。
 > 设计理念见 [DESIGN_PHILOSOPHY.md](./DESIGN_PHILOSOPHY.md),
@@ -78,11 +78,11 @@ hu-so-yue-yu/
 │   │   │   ├── ChaseScene.ts       # 追捕小游戏子场景（v0.2）
 │   │   │   └── DialogueScene.ts    # 剧情对话子场景（v0.2）
 │   │   ├── objects/            # 游戏对象
-│   │   │   ├── Player.ts           # 主角阿粤（实现 StateTextSource）
+│   │   │   ├── Player.ts           # 主角某人（实现 StateTextSource）
 │   │   │   ├── TextSprite.ts       # ★伪图卡片系统（核心，含状态驱动）
 │   │   │   ├── MovableNpc.ts       # 可移动 NPC + AI 状态机（v0.2）
 │   │   │   ├── SurpriseTrigger.ts  # 惊喜触发器
-│   │   │   ├── Coin.ts             # 粤语金币
+│   │   │   ├── Coin.ts             # 金币
 │   │   │   └── Npc.ts              # NPC（静态）
 │   │   ├── systems/            # 游戏系统
 │   │   │   ├── BuffSystem.ts       # Buff 管理

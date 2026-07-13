@@ -13,7 +13,7 @@
  * - NPC 主动跳跃:玩家在上方或遇到障碍时主动跳跃
  *
  * 独立小场景,有阶梯平台布局。
- * 玩家控制阿粤追,老伯(MovableNpc)自动逃跑+射击。
+ * 玩家控制某人追,老伯(MovableNpc)自动逃跑+射击。
  * 碰到老伯即抓住,触发对话后回传结果。
  */
 import Phaser from 'phaser'
@@ -147,7 +147,7 @@ export class ChaseScene extends BaseSubScene {
 
     // 场景标题
     this.add
-      .text(worldW / 2, 40, '追捕老伯!', {
+      .text(worldW / 2, 40, '追捕梦想!', {
         fontFamily: 'Arial, "Microsoft YaHei", sans-serif',
         fontSize: '36px',
         color: '#ff6b6b'
@@ -175,7 +175,7 @@ export class ChaseScene extends BaseSubScene {
     this.player = new Player(this, cfg.playerSpawn.x, cfg.playerSpawn.y)
     this.player.bindCardState(
       cfg.stateTextMaps?.player ?? {
-        idle: '阿粤', run: '追!', jump: '跳', fall: '落', crouch: '蹲'
+        idle: '某人', run: '追!', jump: '跳', fall: '落', crouch: '蹲'
       }
     )
     // 双倍最大速度
@@ -279,14 +279,14 @@ export class ChaseScene extends BaseSubScene {
       worldH
     })
 
-    // 状态提示文字
+    // 状态提示文字(顶部,与标题形成信息区)
     this.slowMoStatusText = this.add
-      .text(worldW / 2, worldH - 60, '追近逃跑者并跳跃触发子弹时间 | T键手动切换', {
+      .text(worldW / 2, 90, '追近逃跑者并跳跃触发子弹时间 | T键手动切换', {
         fontFamily: 'Arial, "Microsoft YaHei", sans-serif',
-        fontSize: '28px',
-        color: '#ffffff',
-        backgroundColor: 'rgba(0,0,0,0.6)',
-        padding: { x: 20, y: 8 }
+        fontSize: '24px',
+        color: '#a0a0c0',
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        padding: { x: 16, y: 6 }
       })
       .setOrigin(0.5)
       .setDepth(100)
@@ -376,12 +376,12 @@ export class ChaseScene extends BaseSubScene {
     // 销毁旧对话卡片
     this.dialogueBox?.destroy()
 
-    // 创建对话卡片(底部)
-    const { height: worldH } = this.chaseConfig.worldSize
-    this.dialogueBox = new TextSprite(this, 800, worldH - 120, {
+    // 创建对话卡片(底部聊天气泡,统一风格)
+    const { width: worldW, height: worldH } = this.chaseConfig.worldSize
+    this.dialogueBox = new TextSprite(this, worldW / 2, worldH - 220, {
       type: 'dialogue',
-      text: `${line.speaker}: ${line.text}`,
-      size: { width: 1400, height: 160 },
+      text: line.text,
+      size: { width: 700, height: 110 },
       borderWidth: 2
     })
 

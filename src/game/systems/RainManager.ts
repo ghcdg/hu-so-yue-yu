@@ -40,7 +40,7 @@ export class RainManager {
   constructor(scene: Phaser.Scene, config: RainConfig) {
     this.scene = scene
     this.config = {
-      color: '#aaccff',
+      color: '#3a4a6a',
       dropWidth: 6,
       dropHeight: 24,
       ...config

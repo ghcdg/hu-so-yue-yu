@@ -1,7 +1,7 @@
 {
   "name": "hu-so-yue-yu",
   "version": "0.1.0",
-  "description": "狐嗦粤语 — 游戏第一,学习第二的粤语平台跳跃游戏",
+  "description": "狐嗦学园 — 游戏第一,学习第二的平台跳跃游戏",
   "type": "module",
   "scripts": {
     "dev": "vite",

@@ -55,10 +55,6 @@ export interface NpcData {
  */
 export type InteractAction =
   | 'kick_fish' // 区2:踢咸鱼 → 弹开 + 揭示隐藏金币
-  | 'kick_ball' // 区4:踢足球 → 弹飞 + 闪现黄金右脚
-  | 'kick_football' // 区4:踢足球 → 进入足球子场景收集文字
-  | 'trigger_surprise' // 区7:触发必触发惊喜(咸鱼翻身 buff)
-  | 'hidden_shoe' // 区6隐藏:踢破旧足球鞋 → 钢铁腿隐藏惊喜
   | 'find_difference' // 找区别于场景: 在一堆咸鱼中找出梦想鱼
 
 /** 可互动物件数据 */
@@ -68,8 +64,6 @@ export interface InteractableData {
   position: { x: number; y: number }
   /** E 键互动时的动作类型(代码 switch 处理) */
   action: InteractAction
-  /** 关联的惊喜ID(action=trigger_surprise 时用) */
-  surpriseId?: string
   /** 关联的隐藏金币ID(action=kick_fish 等揭示后给) */
   revealCoinId?: string
 }
@@ -133,7 +127,6 @@ export interface LevelData {
   /** 金币不足时的提示(v0.2) */
   lockedHint?: string
   totalCoins: number
-  totalHidden: number
   /** 伏笔台词(结算页显示,老伯再次出现埋第二关悬念) */
   epilogue?: { speaker: string; lines: string[] }
   /** 追捕子场景配置(v0.3,数据驱动) */

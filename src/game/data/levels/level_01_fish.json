@@ -1,12 +1,12 @@
 {
   "id": "level_01_fish",
-  "name": "咸鱼翻身",
-  "themeTag": "打工同咸鱼有咩区别?",
+  "name": "梦想和咸鱼",
+  "themeTag": "打工和咸鱼有什么区别?",
   "targetSentence": {
     "cantonese": "做人如果冇梦想,跟咸鱼有咩分别?",
     "jyutping": "zou6 jan4 jyu4 gwo2 mou5 mung6 soeng2, gan1 haam4 jyu4 jau5 me1 faan1 bit6?",
     "mandarin": "做人如果没有梦想,那跟咸鱼有什么分别?",
-    "source": "周星驰《少林足球》"
+    "source": ""
   },
   "worldSize": { "width": 4800, "height": 1440 },
   "spawn": { "x": 240, "y": 1200 },
@@ -21,7 +21,7 @@
       "type": "static",
       "position": { "x": 560, "y": 1120 },
       "size": { "width": 320, "height": 40 },
-      "card": { "type": "object", "text": "打工平台", "suffix": ".jpg" }
+      "card": { "type": "object", "text": "工作平台", "suffix": ".jpg" }
     },
     {
       "id": "platform_fish",
@@ -111,100 +111,39 @@
   "npcs": [
     {
       "id": "npc_oldMan",
-      "card": { "type": "character", "text": "老伯", "suffix": ".jpg" },
-      "position": { "x": 300, "y": 1320 },
+      "card": { "type": "character", "text": "老伯", "suffix": ".jpg", "animation": "bounce" },
+      "position": { "x": 450, "y": 1320 },
       "dialogues": [
         { "speaker": "老伯", "text": "小伙子,看你这样子,刚下班?" },
         { "speaker": "老伯", "text": "天天加班,感觉自己像条咸鱼?" },
-        { "speaker": "老伯", "text": "前面就有一条咸鱼,去看看吧,也许能找到答案。" }
-      ]
-    },
-    {
-      "id": "npc_star",
-      "card": { "type": "character", "text": "星爷", "suffix": ".jpg" },
-      "position": { "x": 3000, "y": 1020 },
-      "dialogues": [
-        { "speaker": "星爷", "text": "年轻人,我看你骨骼精奇,是个练武奇才。" },
-        { "speaker": "星爷", "text": "打工人也可以有梦想啊。" },
-        { "speaker": "星爷", "text": "咸鱼...梦想..." },
-        { "speaker": "星爷", "text": "前面有个挑战,你敢不敢试?完成了,你就明白了。" }
+        { "speaker": "老伯", "text": "想找到答案?先追上我再说!" }
       ]
     }
   ],
   "interactables": [
     {
-      "id": "int_hanging_fish",
-      "card": {
-        "type": "object", "text": "挂着的咸鱼", "suffix": ".gif",
-        "scrollSpeed": 4, "interactable": true, "interactHint": "按 E 踢一脚"
-      },
-      "position": { "x": 1040, "y": 840 },
-      "action": "kick_fish",
-      "revealCoinId": "coin_haam4"
-    },
-    {
       "id": "int_find_difference",
       "card": {
         "type": "object", "text": "找区别", "suffix": ".jpg",
         "interactable": true, "interactHint": "按 E 找区别",
-        "highlight": true
+        "highlight": true, "animation": "bounce"
       },
       "position": { "x": 2000, "y": 840 },
       "action": "find_difference"
     },
     {
-      "id": "int_challenge_fish",
+      "id": "int_scroll_billboard",
       "card": {
-        "type": "object", "text": "挂着的咸鱼", "suffix": ".gif",
+        "type": "object", "text": "甲方广告", "suffix": ".gif",
         "scrollSpeed": 5, "interactable": true, "interactHint": "按 E 踢一脚"
       },
       "position": { "x": 3900, "y": 680 },
       "action": "kick_fish"
-    },
-    {
-      "id": "int_old_shoe",
-      "card": {
-        "type": "object", "text": "破旧的足球鞋", "suffix": ".jpg",
-        "interactable": true, "interactHint": "按 E 踢一脚",
-        "animation": "glow"
-      },
-      "position": { "x": 3240, "y": 960 },
-      "action": "hidden_shoe"
     }
   ],
-  "surprises": [
-    {
-      "id": "surprise_star_ye",
-      "type": "required",
-      "setup": {
-        "hintCard": {
-          "type": "hint", "text": "高人即将出现...", "suffix": ".jpg",
-          "size": { "width": 640, "height": 120 }
-        },
-        "delayMs": 1500
-      },
-      "reveal": {
-        "characterCard": {
-          "type": "character", "text": "星爷", "suffix": ".gif",
-          "scrollSpeed": 6, "size": { "width": 280, "height": 360 }
-        },
-        "scrollText": "做人如果冇梦想,跟咸鱼有咩分别?"
-      },
-      "interact": {
-        "dialogue": [
-          { "speaker": "星爷", "text": "好一脚!咸鱼翻身,二段跳强化,去挑战吧!" }
-        ],
-        "buff": {
-          "id": "buff_fish翻身",
-          "name": "咸鱼翻身",
-          "description": "二段跳高度+30%,滞空更久",
-          "effect": { "type": "jumpEnhance", "value": 0.3 }
-        }
-      }
-    }
-  ],
+  "surprises": [],
   "zones": [
-    { "id": "zone_work", "name": "打工", "bounds": { "x": 0, "y": 0, "width": 800, "height": 1440 }, "checkpoint": { "x": 560, "y": 1080 } },
+    { "id": "zone_work", "name": "工作", "bounds": { "x": 0, "y": 0, "width": 800, "height": 1440 }, "checkpoint": { "x": 560, "y": 1080 } },
     { "id": "zone_fish", "name": "咸鱼", "bounds": { "x": 800, "y": 0, "width": 600, "height": 1440 }, "checkpoint": { "x": 1040, "y": 960 } },
     { "id": "zone_corner", "name": "街角", "bounds": { "x": 1400, "y": 0, "width": 800, "height": 1440 }, "checkpoint": { "x": 2000, "y": 1320 } },
     { "id": "zone_effort", "name": "功夫", "bounds": { "x": 2200, "y": 0, "width": 600, "height": 1440 }, "checkpoint": { "x": 2480, "y": 640 } },
@@ -216,13 +155,12 @@
   "requireCoins": 5,
   "lockedHint": "还需收集汉字才能登台!每个金币是一个汉字哦~",
   "totalCoins": 5,
-  "totalHidden": 1,
   "epilogue": {
     "speaker": "老伯",
     "lines": [
       "没想到你真的做到了,年轻人。",
       "记住,做人如果冇梦想,跟咸鱼有咩分别?",
-      "这只是开始,下一关还有更多粤语金句等着你。"
+      "这只是开始,下一关还有更多金句等着你。"
     ]
   },
   "chaseScene": {
@@ -254,10 +192,10 @@
     },
     "caughtDialogue": [
       { "speaker": "老伯", "text": "好啦好啦,年轻人腿脚真快!" },
-      { "speaker": "老伯", "text": "咸鱼就在前面,去看看吧!" }
+      { "speaker": "老伯", "text": "有条特别的咸鱼在前面,去看看吧!" }
     ],
     "stateTextMaps": {
-      "player": { "idle": "阿粤", "run": "追!", "jump": "跳", "fall": "落", "crouch": "蹲" },
+      "player": { "idle": "某人", "run": "追!", "jump": "跳", "fall": "落", "crouch": "蹲" },
       "fugitive": { "idle": "老伯", "patrol": "巡", "flee": "逃!", "caught": "啊!", "flee_empty": "弹尽!" }
     },
     "bullet": {
@@ -265,7 +203,6 @@
       "shootRange": 200,
       "cooldownMs": 500
     },
-    "platformBounce": 0.6,
-    "onComplete": { "unlockPath": "zone_2_fish" }
+    "platformBounce": 0.6
   }
 }

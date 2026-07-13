@@ -9,8 +9,6 @@ export interface LevelResult {
   levelName: string
   coins: number
   totalCoins: number
-  hiddenFound: number
-  totalHidden: number
   timeMs: number
   /** 评价等级:咸鱼翻身 / 咸鱼之王 / 梦想家 */
   rank: string
@@ -49,7 +47,6 @@ export type GameEvent =
   | { type: 'level-start'; levelId: string }
   | { type: 'level-complete'; result: LevelResult }
   | { type: 'coin-collected'; word: string; count: number }
-  | { type: 'hidden-found'; id: string; count: number }
   | { type: 'surprise-triggered'; id: string; name: string }
   | { type: 'sentence-revealed'; sentence: Sentence }
   | { type: 'show-dialog'; dialog: Dialog }

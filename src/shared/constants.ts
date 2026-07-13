@@ -10,10 +10,6 @@ export const SCENE = {
   UI: 'UIScene',
   /** 追捕子场景(v0.2) */
   CHASE: 'ChaseScene',
-  /** 剧情对话子场景(v0.2) */
-  DIALOGUE: 'DialogueScene',
-  /** 踢足球子场景(v0.2) */
-  FOOTBALL: 'FootballScene',
   /** 找区别于场景(v0.5) */
   FIND_DIFFERENCE: 'FindDifferenceScene'
 } as const

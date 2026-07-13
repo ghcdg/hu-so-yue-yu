@@ -1,4 +1,4 @@
-# 狐嗦粤语 — 开发日志 (DEVLOG)
+# 狐嗦学园 — 开发日志 (DEVLOG)
 
 > 记录每次开发迭代的决策、变更和遇到的问题。
 > 任务进度跟踪见 [TASKS.md](./TASKS.md)。
@@ -38,7 +38,7 @@
 
 **背景**:原设计的 emoji 触发太"平"——玩家找到 emoji 按 E 就通关,可玩性薄。
 
-**决策**:升级为铺垫链思路。游戏中所有物品/人物/场景/对话都是铺垫,玩家一路经历碎片,潜意识拼凑出目标粤语金句的轮廓,最后难度完成触发句子,产生"恍然大悟"爽感。
+**决策**:升级为铺垫链思路。游戏中所有物品/人物/场景/对话都是铺垫,玩家一路经历碎片,潜意识拼凑出目标金句的轮廓,最后难度完成触发句子,产生"恍然大悟"爽感。
 
 **关键转变**:不是"蹦出角色说台词",而是"让玩家自己拼出台词"。
 
@@ -273,7 +273,7 @@ src/
 ### 验证用占位交互
 
 阶段2 的 LevelScene 不实现玩法,只放三个占位按钮验证通信链路:
-- [点击收集粤语金币] → coin-collected 事件 + HUD 更新
+- [点击收集金币] → coin-collected 事件 + HUD 更新
 - [触发隐藏发现] → hidden-found 事件 + HUD 更新
 - [模拟通关 → 结算] / ESC → level-complete 事件 → 跳结算页
 
@@ -322,7 +322,7 @@ src/
 **理由**:
 - Phaser.Container 运行时有 flipX,但 TS 类型定义未暴露,强转 any 不优雅
 - 中文文字镜像后不可读,违反"伪图卡片用文字传达信息"的设计
-- 阿粤立绘是文字"阿粤.jpg",翻转无意义
+- 某人立绘是文字"某人.jpg",翻转无意义
 
 ---
 
@@ -331,7 +331,7 @@ src/
 **背景**:Player 需 A/D 移动+惯性、W/Space 跳跃+二段跳、S 蹲、E 互动。
 
 **决策**:
-- 继承 Container,内部 sprite = new TextSprite(character 类型 "阿粤.jpg")
+- 继承 Container,内部 sprite = new TextSprite(character 类型 "某人.jpg")
 - Arcade Physics:body2.setSize / setOffset(中心对齐)/ setCollideWorldBounds / setDragX(600 滑行)/ setMaxVelocityX
 - 跳跃:JustDown 边沿检测,grounded 时一段跳,maxJumps=1;setDoubleJump(true, multiplier) 后 maxJumps=2(对应"咸鱼翻身"buff)
 - 蹲下:setScale(1, 0.6) + 锁定移动

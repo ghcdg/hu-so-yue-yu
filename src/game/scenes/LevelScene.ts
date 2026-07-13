@@ -1,13 +1,10 @@
 /**
  * LevelScene - 关卡主场景
- * 职责:从 JSON 加载关卡 / 创建对象 / 配置碰撞 / 处理互动 / 触发揭示 / 惊喜事件
+ * 职责:从 JSON 加载关卡 / 创建对象 / 配置碰撞 / 处理互动 / 触发揭示
  * 详见 TECH_ARCH.md 5.2 节、LEVEL_DESIGN/LEVEL_01_FISH.md
  *
- * 阶段3:7 区铺垫链 + 惊喜事件 + Buff 系统
- * - 7 区:打工→咸鱼→疑问→足球→寺庙→星爷→挑战→揭示
- * - 可互动物件:E 键触发(踢咸鱼/踢足球/触发惊喜/隐藏惊喜)
- * - 惊喜三段式:铺垫提示→角色揭示→互动给 buff
- * - Buff:咸鱼翻身 = setDoubleJump(true, 1.3)
+ * - 可互动物件:E 键触发(踢咸鱼/找区别)
+ * - 子场景:追捕老伯 / 找区别于场景
  */
 import Phaser from 'phaser'
 import { SCENE, COLORS } from '@/shared/constants'
@@ -18,11 +15,10 @@ import { Coin } from '@/game/objects/Coin'
 import { Npc } from '@/game/objects/Npc'
 import { InteractableObject } from '@/game/objects/InteractableObject'
 import type { ChaseSceneConfig } from '@/game/scenes/ChaseScene'
-import type { FootballSceneConfig } from '@/game/scenes/FootballScene'
 import type { FindDifferenceSceneConfig } from '@/game/data/types'
 import { SfxManager } from '@/game/systems/SfxManager'
 import levelData from '@/game/data/levels/level_01_fish.json'
-import type { LevelData, SurpriseData, BuffData, InteractAction, DialogueData } from '@/game/data/types'
+import type { LevelData, InteractAction, DialogueData } from '@/game/data/types'
 import { toSentence } from '@/game/data/types'
 import { speakerManager } from '@/speakers/SpeakerManager'
 
@@ -37,7 +33,6 @@ const DIALOG_CLOSE_DISTANCE = 240
 
 export class LevelScene extends Phaser.Scene {
   private coins = 0
-  private hidden = 0
   private startTime = 0
 
   private player!: Player
@@ -56,8 +51,6 @@ export class LevelScene extends Phaser.Scene {
   private dialogAnchor: { x: number; y: number } | null = null
   /** 对话是否进行中(防止 E 键同时触发互动) */
   private dialogActive = false
-  /** 已触发的惊喜ID集合(防重复) */
-  private triggeredSurprises = new Set<string>()
   /** 检查点:从 zones 数据提取,按 x 坐标升序排列 */
   private checkpoints: { x: number; y: number }[] = []
   /** 当前到达的检查点下标(0=起点) */
@@ -74,7 +67,6 @@ export class LevelScene extends Phaser.Scene {
 
   create(): void {
     this.coins = 0
-    this.hidden = 0
     this.startTime = this.time.now
     this.revealed = false
     this.cameras.main.setBackgroundColor(COLORS.BG)
@@ -139,7 +131,7 @@ export class LevelScene extends Phaser.Scene {
     this.player = new Player(this, LEVEL.spawn.x, LEVEL.spawn.y)
     // 验证:状态驱动卡片(v0.2 demo) - 玩家卡片实时显示动作
     this.player.bindCardState({
-      idle: '阿粤', run: '跑', jump: '跳', fall: '落', crouch: '蹲'
+      idle: '某人', run: '跑', jump: '跳', fall: '落', crouch: '蹲'
     })
     // 音效回调
     this.player.onSfx = (type) => {
@@ -249,6 +241,10 @@ export class LevelScene extends Phaser.Scene {
           this.events.emit('show-toast', `获得文字「${result.rewards.word}」! 已收集 ${this.coins}/${LEVEL.totalCoins} 字`)
         } else {
           this.events.emit('show-toast', '追捕成功!')
+          // 引导玩家去「找区别」子场景
+          this.time.delayedCall(2500, () => {
+            this.events.emit('show-toast', '前面有个「找区别」的地方，去看看吧！')
+          })
         }
       } else {
         this.events.emit('show-toast', '追捕取消')
@@ -275,6 +271,11 @@ export class LevelScene extends Phaser.Scene {
       ]
     }
     this.currentCheckpointIndex = 0
+
+    // 初始引导:提示玩家去找老伯
+    this.time.delayedCall(800, () => {
+      this.events.emit('show-toast', '去找老伯聊聊吧！')
+    })
   }
 
   /** 创建平台(TextSprite + 静态物理体) */
@@ -336,18 +337,6 @@ export class LevelScene extends Phaser.Scene {
       case 'kick_fish':
         this.kickFish(obj)
         break
-      case 'kick_ball':
-        this.kickBall(obj)
-        break
-      case 'trigger_surprise':
-        this.triggerSurprise(obj)
-        break
-      case 'hidden_shoe':
-        this.hiddenShoe(obj)
-        break
-      case 'kick_football':
-        this.kickFootball(obj)
-        break
       case 'find_difference':
         this.startFindDifferenceScene()
         break
@@ -363,114 +352,19 @@ export class LevelScene extends Phaser.Scene {
       if (coinData) {
         // 金币已在场景中,但可能位置隐蔽;这里直接让其可见可拾取
         // 简化:金币本就在该位置,踢咸鱼后给提示
-        this.events.emit('show-toast', `发现隐藏粤语金币: ${coinData.word}`)
+        this.events.emit('show-toast', `发现隐藏金币: ${coinData.word}`)
       }
     }
     this.events.emit('show-toast', '咸鱼弹开了!隐藏路径(待实现)...')
   }
 
-  /** 区4:踢足球 → 弹开动效 + 进入足球子场景 */
-  private kickBall(obj: InteractableObject): void {
-    obj.playKickEffect()
-    obj.playFlashHint('少林功夫+足球=?')
-    this.events.emit('show-toast', '足球弹飞了!滚向远方...')
-  }
-
-  /** 区4:踢足球 → 进入足球子场景收集文字 */
-  private kickFootball(obj: InteractableObject): void {
-    obj.playKickEffect()
-    this.time.delayedCall(400, () => this.startFootballScene())
-  }
-
-  /** 启动足球子场景 */
-  private startFootballScene(): void {
-    this.scene.launch(SCENE.FOOTBALL, {
-      id: 'football_street',
-      type: 'football',
-      worldSize: { width: 1600, height: 1200 },
-      playerSpawn: { x: 300, y: 1000 },
-      totalAttempts: 3
-    } as FootballSceneConfig)
-  }
-
-  /** 区6隐藏:踢破旧足球鞋 → 钢铁腿隐藏惊喜 */
-  private hiddenShoe(obj: InteractableObject): void {
-    obj.playKickEffect()
-    this.hidden++
-    this.emitHudUpdate()
-    eventBus.emit({ type: 'hidden-found', id: 'hidden_steel_leg', count: this.hidden })
-    this.events.emit('show-toast', '钢铁腿:我踢球的时候,你们还穿开裆裤!隐藏发现+1')
-  }
-
-  /** 区4:触发必触发惊喜(三段式叙事,玩家踢足球触发) */
-  private triggerSurprise(obj: InteractableObject): void {
-    const surpriseId = obj.surpriseId
-    if (!surpriseId || this.triggeredSurprises.has(surpriseId)) return
-    this.triggeredSurprises.add(surpriseId)
-
-    const surprise = LEVEL.surprises.find((s) => s.id === surpriseId)
-    if (!surprise) return
-
-    // 记录触发点位置(阶段3 对话锚点用,obj 会被 playKickEffect 销毁)
-    const anchorX = obj.x
-    const anchorY = obj.y
-
-    // 物件先弹开
-    obj.playKickEffect()
-
-    // 三段式:阶段1 铺垫提示 → 阶段2 揭示 → 阶段3 互动给 buff
-    this.executeSurprise(surprise, anchorX, anchorY)
-  }
-
-  /** 执行惊喜三段式(扁平时序:setup 立即 + reveal/dialog 同时;buff 立即生效) */
-  private executeSurprise(surprise: SurpriseData, anchorX: number, anchorY: number): void {
-    // 阶段1:立即显示铺垫卡片(屏幕上方)+ 立即应用 buff(手感优先,不等对话)
-    this.events.emit('surprise-setup', surprise.setup.hintCard)
-    eventBus.emit({
-      type: 'surprise-triggered',
-      id: surprise.id,
-      name: surprise.reveal.characterCard.text
-    })
-    if (surprise.interact.buff) {
-      this.applyBuff(surprise.interact.buff)
-    }
-
-    // 阶段2+3:delayMs 后同时显示 reveal 卡片(中央偏上)+ 对话(底部)
-    // 位置分离,互不干扰;玩家可自由操作
-    this.time.delayedCall(surprise.setup.delayMs, () => {
-      // 镜头震动增强惊喜冲击力
-      this.cameras.main.shake(200, 0.01)
-      this.events.emit('surprise-reveal', {
-        characterCard: surprise.reveal.characterCard,
-        scrollText: surprise.reveal.scrollText
-      })
-      this.surpriseDialogueQueue = [...surprise.interact.dialogue]
-      this.dialogAnchor = { x: anchorX, y: anchorY }
-      this.dialogActive = true
-      if (this.surpriseDialogueQueue.length > 0) {
-        this.events.emit('show-dialog', this.surpriseDialogueQueue.shift()!)
-      }
-    })
-  }
-
-  /** 应用 Buff(咸鱼翻身 = 二段跳 +30%) */
-  private applyBuff(buff: BuffData): void {
-    if (buff.effect.type === 'jumpEnhance') {
-      // value=0.3 → multiplier=1+0.3=1.3
-      this.player.setDoubleJump(true, 1 + buff.effect.value)
-      this.events.emit('show-toast', `获得 Buff: ${buff.name}!${buff.description}`)
-    }
-  }
-
-  /** 关闭对话(玩家走远或惊喜对话按 E 结束时调用) */
+  /** 关闭对话(玩家走远或按 E 结束时调用) */
   closeDialog(): void {
     this.talkingNpc?.resetDialogue()
     this.talkingNpc = null
     this.surpriseDialogueQueue = []
     this.dialogAnchor = null
     this.dialogActive = false
-    // 同步销毁惊喜揭示卡片(UIScene 中)
-    this.events.emit('hide-surprise-reveal')
   }
 
   /** 每帧:掉落检测 + 对话走远关闭 + 互动提示更新 */
@@ -530,7 +424,7 @@ export class LevelScene extends Phaser.Scene {
   }
 
   private emitHudUpdate(): void {
-    this.events.emit('hud-update', { coins: this.coins, hidden: this.hidden })
+    this.events.emit('hud-update', { coins: this.coins })
   }
 
   private finishLevel(): void {
@@ -541,17 +435,15 @@ export class LevelScene extends Phaser.Scene {
       eventBus.emit({
         type: 'level-complete',
         result: {
-        levelId: LEVEL.id,
-        levelName: LEVEL.name,
-        coins: this.coins,
-        totalCoins: LEVEL.totalCoins,
-        hiddenFound: this.hidden,
-        totalHidden: LEVEL.totalHidden,
-        timeMs: this.time.now - this.startTime,
-        rank: this.coins >= LEVEL.totalCoins ? '梦想家' : this.coins >= 3 ? '咸鱼之王' : '咸鱼翻身',
-        epilogue: LEVEL.epilogue
-      }
-    })
+          levelId: LEVEL.id,
+          levelName: LEVEL.name,
+          coins: this.coins,
+          totalCoins: LEVEL.totalCoins,
+          timeMs: this.time.now - this.startTime,
+          rank: this.coins >= LEVEL.totalCoins ? '梦想家' : this.coins >= 3 ? '咸鱼之王' : '咸鱼翻身',
+          epilogue: LEVEL.epilogue
+        }
+      })
     })
   }
 
@@ -590,8 +482,7 @@ export class LevelScene extends Phaser.Scene {
         caughtDialogue: [
           { speaker: '老伯', text: '好啦好啦,年轻人腿脚真快!' },
           { speaker: '老伯', text: '咸鱼就在前面,去看看吧!' }
-        ],
-        onComplete: { unlockPath: 'zone_2_fish' }
+        ]
       } as ChaseSceneConfig)
       return
     }

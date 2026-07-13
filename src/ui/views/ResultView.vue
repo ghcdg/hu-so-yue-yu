@@ -1,6 +1,6 @@
 <!--
   ResultView.vue - 通关结算页
-  显示:评价等级 / 收集统计 / 伏笔台词 / 再来一次
+  风格:与游戏主体统一,暗色背景 + 文字卡片
 -->
 <script setup lang="ts">
 import { computed } from 'vue'
@@ -15,7 +15,7 @@ const rankColor = computed(() => {
   switch (result.value.rank) {
     case '梦想家': return '#ffd166'
     case '咸鱼之王': return '#a0c0ff'
-    default: return '#c0c0c0'
+    default: return '#a0a0c0'
   }
 })
 
@@ -24,10 +24,8 @@ function backToMenu() {
 }
 
 function playAgain() {
-  // 重新开始当前关卡:回到菜单再进入
   store.backToMenu()
   if (result.value) {
-    // 下一帧开始游戏,确保 view 切换完成
     requestAnimationFrame(() => {
       store.startGame(result.value!.levelId)
     })
@@ -38,17 +36,13 @@ function playAgain() {
 <template>
   <div class="result-view">
     <div class="result-card" v-if="result">
-      <div class="level-name">{{ result.levelName || result.levelId }}</div>
-      <h2 class="rank" :style="{ color: rankColor }">「{{ result.rank }}」</h2>
+      <div class="level-tag">{{ result.levelName || result.levelId }}</div>
+      <div class="rank" :style="{ color: rankColor }">{{ result.rank }}</div>
 
       <div class="stats">
         <div class="stat-row">
-          <span class="label">粤语金币</span>
+          <span class="label">金币</span>
           <span class="value">{{ result.coins }} / {{ result.totalCoins }}</span>
-        </div>
-        <div class="stat-row">
-          <span class="label">隐藏发现</span>
-          <span class="value">{{ result.hiddenFound }} / {{ result.totalHidden }}</span>
         </div>
         <div class="stat-row">
           <span class="label">用时</span>
@@ -65,8 +59,8 @@ function playAgain() {
       </div>
 
       <div class="buttons">
-        <button class="btn btn-primary" @click="playAgain">再来一次</button>
-        <button class="btn btn-secondary" @click="backToMenu">返回菜单</button>
+        <div class="btn btn-primary" @click="playAgain" role="button" tabindex="0">再来一次</div>
+        <div class="btn btn-secondary" @click="backToMenu" role="button" tabindex="0">返回菜单</div>
       </div>
     </div>
 
@@ -81,27 +75,34 @@ function playAgain() {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--color-text-primary);
+  background: #1a1a2e;
 }
+
 .result-card {
-  width: min(480px, 90%);
+  width: min(420px, 90%);
   max-height: 90vh;
   overflow-y: auto;
-  padding: 36px 32px;
-  background: var(--color-bg-light);
-  border: 2px solid var(--color-accent);
-  border-radius: var(--radius-md);
+  padding: 32px 32px;
+  border: 2px solid #4a4a6a;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.3);
   text-align: center;
 }
-.level-name {
-  font-size: 14px;
-  color: var(--color-text-secondary);
+
+.level-tag {
+  font-size: 13px;
+  color: #6a6a8a;
+  letter-spacing: 2px;
   margin-bottom: 4px;
 }
+
 .rank {
-  font-size: 40px;
+  font-size: 36px;
   margin: 0 0 20px;
+  letter-spacing: 4px;
 }
+
+/* ── 统计 ── */
 .stats {
   text-align: left;
   margin: 0 auto 20px;
@@ -111,39 +112,40 @@ function playAgain() {
   display: flex;
   justify-content: space-between;
   gap: 40px;
-  font-size: 16px;
+  font-size: 15px;
   padding: 8px 0;
-  border-bottom: 1px dashed var(--color-border);
+  border-bottom: 1px dashed #3a3a5a;
 }
 .label {
-  color: var(--color-text-secondary);
+  color: #a0a0c0;
 }
 .value {
-  color: var(--color-text-primary);
+  color: #f5f5f5;
   font-weight: bold;
 }
 
-/* 伏笔台词 */
+/* ── 伏笔台词 ── */
 .epilogue {
   margin: 20px 0;
-  padding: 16px 20px;
-  background: var(--color-accent-dim);
-  border: 1px dashed var(--color-border);
-  border-radius: var(--radius-sm);
+  padding: 14px 18px;
+  border: 1px dashed #4a4a6a;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.2);
   text-align: left;
 }
 .epilogue-speaker {
   font-size: 13px;
-  color: var(--color-accent);
+  color: #ffd166;
   margin-bottom: 8px;
 }
 .epilogue-line {
-  font-size: 14px;
-  color: #c0c0c0;
+  font-size: 13px;
+  color: #a0a0c0;
   line-height: 1.8;
   font-style: italic;
 }
 
+/* ── 按钮(卡片风格) ── */
 .buttons {
   display: flex;
   gap: 12px;
@@ -153,26 +155,32 @@ function playAgain() {
 .btn {
   font-size: 15px;
   padding: 10px 28px;
-  border: none;
-  border-radius: var(--btn-radius);
+  border-radius: 6px;
   cursor: pointer;
-  transition: var(--btn-transition);
+  letter-spacing: 2px;
+  transition: background 0.15s ease, transform 0.1s ease;
+  user-select: none;
 }
 .btn-primary {
-  background: var(--btn-primary-bg);
-  color: var(--btn-primary-color);
+  border: 2px solid #ffd166;
+  background: rgba(255, 209, 102, 0.08);
+  color: #ffd166;
 }
 .btn-primary:hover {
-  background: var(--color-accent-light);
+  background: rgba(255, 209, 102, 0.18);
+  transform: scale(1.03);
 }
 .btn-secondary {
-  background: var(--btn-secondary-bg);
-  color: var(--btn-secondary-color);
+  border: 2px solid #4a4a6a;
+  background: rgba(0, 0, 0, 0.2);
+  color: #a0a0c0;
 }
 .btn-secondary:hover {
-  background: var(--color-border-light);
+  background: rgba(74, 74, 106, 0.3);
+  transform: scale(1.03);
 }
+
 .empty {
-  color: var(--color-text-muted);
+  color: #6a6a8a;
 }
 </style>

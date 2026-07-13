@@ -9,12 +9,9 @@
  *
  * 动作类型(InteractAction):
  * - kick_fish:踢咸鱼 → 弹开动效 + 揭示隐藏金币(反向引导机制)
- * - kick_ball:踢足球 → 弹飞动效 + 闪现提示
- * - trigger_surprise:触发惊喜事件(三段式叙事)
- * - hidden_shoe:隐藏惊喜(钢铁腿)
+ * - find_difference:进入找区别于场景
  *
- * 互动后状态:consumed=true,防止重复触发(金币/惊喜类)
- * 反向引导类(kick_fish/kick_ball)可重复互动但效果只触发一次
+ * 互动后状态:consumed=true,防止重复触发
  */
 import Phaser from 'phaser'
 import { TextSprite } from '@/game/objects/TextSprite'
@@ -23,7 +20,6 @@ import type { InteractableData } from '@/game/data/types'
 export class InteractableObject extends TextSprite {
   readonly intId: string
   readonly action: string
-  readonly surpriseId?: string
   readonly revealCoinId?: string
 
   /** 是否已互动过(防重复) */
@@ -33,7 +29,6 @@ export class InteractableObject extends TextSprite {
     super(scene, data.position.x, data.position.y, data.card)
     this.intId = data.id
     this.action = data.action
-    this.surpriseId = data.surpriseId
     this.revealCoinId = data.revealCoinId
 
     // 静态物理体(可碰撞但不移动)

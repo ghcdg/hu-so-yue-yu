@@ -1,4 +1,4 @@
-# 狐嗦粤语 — 资源清单 (ASSETS)
+# 狐嗦学园 — 资源清单 (ASSETS)
 
 > 本文档列出伪图卡片清单及后期真图替换映射。
 > 伪图卡片系统设计见 [GAME_DESIGN.md 第三章](./GAME_DESIGN.md),
@@ -12,7 +12,7 @@
 
 | 卡片ID | 文字 | 后缀 | 说明 | 出现位置 |
 |--------|------|------|------|---------|
-| card_ayue | 阿粤 | .jpg | 主角立绘 | 全程 |
+| card_ayue | 某人 | .jpg | 主角立绘 | 全程 |
 | card_oldman | 老伯 | .jpg | 路边老伯,开场指引 | 区1 / 结算 |
 | card_starYe | 星爷 | .jpg | 周星驰NPC,点题"梦想" | 区6 |
 | card_ironLeg | 钢铁腿 | .gif | 少林足球角色(隐藏惊喜) | 区6 隐藏 |
@@ -48,7 +48,7 @@
 
 | 卡片ID | 类型 | 文字 | 说明 |
 |--------|------|------|------|
-| card_dialogue | dialogue | (动态) | 对话框,显示 NPC/阿粤对话 |
+| card_dialogue | dialogue | (动态) | 对话框,显示 NPC/某人对话 |
 | card_choice | dialogue | (动态) | 选择框,3个选项 |
 | card_hintChallenge | hint | 跳上去,找到答案 | 区7 全局提示 |
 | card_hintFishBuff | hint | 咸鱼翻身!二段跳强化! | buff 获得提示 |
@@ -110,7 +110,7 @@
 
 | 伪图卡片 | 真图路径(预留) |
 |---------|---------------|
-| 阿粤.jpg | /assets/sprites/ayue.png |
+| 某人.jpg | /assets/sprites/ayue.png |
 | 老伯.jpg | /assets/sprites/oldman.png |
 | 星爷.jpg | /assets/sprites/starye.png |
 | 挂着的咸鱼.gif | /assets/sprites/hanging_fish.png + 滚动动画 |

@@ -1,8 +1,8 @@
 /**
- * Coin - 粤语金币
+ * Coin - 金币
  *
  * 设计依据:DATA_MODEL.md CoinData + GAME_DESIGN.md 第七章收集系统
- * 视觉:TextSprite(object 类型),印粤语字
+ * 视觉:TextSprite(object 类型),印文字
  * 物理:无重力悬浮,bounce 动效
  * 拾取:overlap 检测 → collect() → 拾取动效 → 销毁 → emit 事件
  */
@@ -24,7 +24,7 @@ export class Coin extends TextSprite {
     super(scene, x, y, {
       type: 'object',
       text: word,
-      subtitle: '粤语金币',
+      subtitle: '金币',
       suffix: '.jpg',
       size: { width: 80, height: 80 },
       borderWidth: 4,

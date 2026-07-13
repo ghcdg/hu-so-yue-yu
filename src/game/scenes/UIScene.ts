@@ -1,33 +1,29 @@
 /**
- * UIScene - 游戏内 HUD / 对话 / 惊喜 / 揭示叠加层
- * 职责:显示 HUD / 对话卡片 / 互动提示 / Toast / 惊喜三段式 / 句子揭示
+ * UIScene - 游戏内 HUD / 对话 / 揭示叠加层
+ * 职责:显示 HUD / 对话卡片 / 互动提示 / Toast / 句子揭示
  * 详见 TECH_ARCH.md 5.3 节
  *
  * 原则:不处理游戏逻辑,只响应 LevelScene 的事件
  *
  * 监听事件(来自 LevelScene.events):
- * - 'hud-update':更新金币/隐藏数
+ * - 'hud-update':更新金币数
  * - 'show-dialog' / 'close-dialog':对话卡片
  * - 'show-interact-hint' / 'hide-interact-hint':互动提示
  * - 'show-toast':Toast 提示(捡金币/触发机关等)
- * - 'surprise-setup':惊喜阶段1 铺垫提示卡片
- * - 'surprise-reveal':惊喜阶段2 角色揭示
- * - 'hide-surprise-reveal':销毁惊喜揭示卡片(对话关闭时)
  * - 'reveal-sentence':句子揭示全屏卡片
  */
 import Phaser from 'phaser'
 import { SCENE, COLORS, GAME_SIZE } from '@/shared/constants'
 import { TextSprite } from '@/game/objects/TextSprite'
-import type { TextSpriteConfig } from '@/game/objects/TextSprite'
 import type { DialogueData } from '@/game/data/types'
 import type { Sentence } from '@/shared/types'
 
 export class UIScene extends Phaser.Scene {
   private coinText!: Phaser.GameObjects.Text
-  private hiddenText!: Phaser.GameObjects.Text
 
   // 对话卡片
   private dialogCard: TextSprite | null = null
+  private dialogSpeaker!: Phaser.GameObjects.Text
   private dialogHint!: Phaser.GameObjects.Text
 
   // 互动提示(靠近可互动物件时显示)
@@ -35,10 +31,6 @@ export class UIScene extends Phaser.Scene {
 
   // Toast 提示
   private toastText: Phaser.GameObjects.Text | null = null
-
-  // 惊喜卡片(阶段1/2)
-  private surpriseSetupCard: TextSprite | null = null
-  private surpriseRevealCard: TextSprite | null = null
 
   // 揭示卡片
   private revealOverlay: Phaser.GameObjects.Rectangle | null = null
@@ -58,17 +50,10 @@ export class UIScene extends Phaser.Scene {
     // ── 顶部 HUD ──
     this.add.rectangle(0, 0, WIDTH, 96, COLORS.BG_LIGHT, 0.85).setOrigin(0, 0).setScrollFactor(0)
     this.coinText = this.add
-      .text(40, 28, '粤语金币: 0', {
+      .text(40, 28, '金币: 0', {
         fontFamily: 'Arial, "Microsoft YaHei", sans-serif',
         fontSize: '36px',
         color: '#ffd166'
-      })
-      .setScrollFactor(0)
-    this.hiddenText = this.add
-      .text(440, 28, '隐藏发现: 0', {
-        fontFamily: 'Arial, "Microsoft YaHei", sans-serif',
-        fontSize: '32px',
-        color: '#ef476f'
       })
       .setScrollFactor(0)
     this.add
@@ -80,11 +65,22 @@ export class UIScene extends Phaser.Scene {
       .setOrigin(1, 0)
       .setScrollFactor(0)
 
-    // 对话提示(初始隐藏)
-    this.dialogHint = this.add
-      .text(WIDTH / 2, GAME_SIZE.HEIGHT - 100, '按 E 继续 / 走开关闭', {
+    // 对话说话人标签(初始隐藏,位于气泡上方)
+    this.dialogSpeaker = this.add
+      .text(WIDTH / 2, 0, '', {
         fontFamily: 'Arial, "Microsoft YaHei", sans-serif',
-        fontSize: '28px',
+        fontSize: '24px',
+        color: '#ffd166'
+      })
+      .setOrigin(0.5)
+      .setScrollFactor(0)
+      .setVisible(false)
+
+    // 对话提示(初始隐藏,位于气泡下方)
+    this.dialogHint = this.add
+      .text(WIDTH / 2, 0, '按 E 继续 / 走开关闭', {
+        fontFamily: 'Arial, "Microsoft YaHei", sans-serif',
+        fontSize: '24px',
         color: '#a0a0c0'
       })
       .setOrigin(0.5)
@@ -107,9 +103,8 @@ export class UIScene extends Phaser.Scene {
     // ── 监听 LevelScene 事件 ──
     const levelScene = this.scene.get(SCENE.LEVEL)
 
-    levelScene.events.on('hud-update', (data: { coins: number; hidden: number }) => {
-      this.coinText.setText(`粤语金币: ${data.coins}`)
-      this.hiddenText.setText(`隐藏发现: ${data.hidden}`)
+    levelScene.events.on('hud-update', (data: { coins: number }) => {
+      this.coinText.setText(`金币: ${data.coins}`)
     })
 
     levelScene.events.on('show-dialog', (line: DialogueData) => {
@@ -132,55 +127,46 @@ export class UIScene extends Phaser.Scene {
       this.showToast(text)
     })
 
-    // 惊喜阶段1:铺垫提示卡片
-    levelScene.events.on('surprise-setup', (cardConfig: TextSpriteConfig) => {
-      this.showSurpriseSetup(cardConfig)
-    })
-
-    // 惊喜阶段2:角色揭示
-    levelScene.events.on(
-      'surprise-reveal',
-      (data: { characterCard: TextSpriteConfig; scrollText: string }) => {
-        this.showSurpriseReveal(data.characterCard, data.scrollText)
-      }
-    )
-
     levelScene.events.on('reveal-sentence', (sentence: Sentence) => {
       this.showReveal(sentence)
-    })
-
-    // 惊喜揭示卡片销毁(对话关闭时触发)
-    levelScene.events.on('hide-surprise-reveal', () => {
-      this.hideSurpriseReveal()
     })
   }
 
   // ──────────────────────────────────────────────
-  // 对话卡片
+  // 对话卡片(底部聊天气泡)
   // ──────────────────────────────────────────────
 
   private showDialog(line: DialogueData): void {
     this.hideDialog()
 
     const { WIDTH, HEIGHT } = GAME_SIZE
-    const cardW = 1520
-    const cardH = 240
+    const cardW = 760
+    const cardH = 110
 
-    this.dialogCard = new TextSprite(this, WIDTH / 2, HEIGHT - 220, {
+    // 说话人标签(气泡上方)
+    this.dialogSpeaker
+      .setPosition(WIDTH / 2, HEIGHT - 350)
+      .setText(line.speaker)
+      .setVisible(true)
+
+    // 气泡卡片
+    this.dialogCard = new TextSprite(this, WIDTH / 2, HEIGHT - 260, {
       type: 'dialogue',
       text: line.text,
-      subtitle: line.speaker,
-      suffix: '.jpg',
       size: { width: cardW, height: cardH }
     })
     this.dialogCard.setScrollFactor(0)
-    this.children.bringToTop(this.dialogHint)
-    this.dialogHint.setVisible(true)
+
+    // 操作提示(气泡下方)
+    this.dialogHint
+      .setPosition(WIDTH / 2, HEIGHT - 160)
+      .setVisible(true)
   }
 
   private hideDialog(): void {
     this.dialogCard?.destroy()
     this.dialogCard = null
+    this.dialogSpeaker.setVisible(false)
     this.dialogHint.setVisible(false)
   }
 
@@ -215,45 +201,6 @@ export class UIScene extends Phaser.Scene {
         this.toastText = null
       }
     })
-  }
-
-  // ──────────────────────────────────────────────
-  // 惊喜三段式
-  // ──────────────────────────────────────────────
-
-  /** 阶段1:铺垫提示卡片(屏幕中上方,显示 delayMs 后自动消失) */
-  private showSurpriseSetup(cardConfig: TextSpriteConfig): void {
-    this.surpriseSetupCard?.destroy()
-    const { WIDTH } = GAME_SIZE
-    this.surpriseSetupCard = new TextSprite(this, WIDTH / 2, 240, {
-      ...cardConfig,
-      animation: 'glow'
-    })
-    this.surpriseSetupCard.setScrollFactor(0)
-    this.children.bringToTop(this.surpriseSetupCard)
-  }
-
-  /** 阶段2:角色揭示(中央偏上卡片 + 滚动文字,由对话关闭时销毁) */
-  private showSurpriseReveal(cardConfig: TextSpriteConfig, scrollText: string): void {
-    // 销毁阶段1卡片
-    this.surpriseSetupCard?.destroy()
-    this.surpriseSetupCard = null
-
-    const { WIDTH, HEIGHT } = GAME_SIZE
-    // 位置上移到 HEIGHT/2-140,让玩家(屏幕中央)不被卡片遮挡
-    this.surpriseRevealCard = new TextSprite(this, WIDTH / 2, HEIGHT / 2 - 280, {
-      ...cardConfig,
-      suffix: '.gif',
-      text: scrollText
-    })
-    this.surpriseRevealCard.setScrollFactor(0)
-    this.children.bringToTop(this.surpriseRevealCard)
-  }
-
-  /** 销毁惊喜揭示卡片(由 LevelScene 对话关闭时触发) */
-  private hideSurpriseReveal(): void {
-    this.surpriseRevealCard?.destroy()
-    this.surpriseRevealCard = null
   }
 
   // ──────────────────────────────────────────────
