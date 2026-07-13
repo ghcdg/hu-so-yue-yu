@@ -16,6 +16,7 @@ export default defineConfig({
     port: 5173,
     open: false
   },
+  base: './',
   build: {
     target: 'es2020',
     chunkSizeWarningLimit: 1500 // Phaser 体积较大,放宽警告阈值
