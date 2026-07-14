@@ -93,6 +93,17 @@ export class FindDifferenceScene extends BaseSubScene {
   private selectionHighlight!: Phaser.GameObjects.Graphics
   private resultContainer!: Phaser.GameObjects.Container
 
+  // ── 文字循环：咸鱼 ↔ haam4 jyu4 ──
+  private textCycleTimer: Phaser.Time.TimerEvent | null = null
+  private showPinyin = false
+  /** 每条鱼的 kaomoji 后缀（即 "咸鱼\n" 之后的部分） */
+  private fishKaomojiSuffix: string[] = []
+
+  // ── ESC 退出确认 ──
+  private confirmingExit = false
+  private exitConfirmBg: Phaser.GameObjects.Graphics | null = null
+  private exitConfirmText: Phaser.GameObjects.Text | null = null
+
   constructor() {
     super(SCENE.FIND_DIFFERENCE)
   }
@@ -111,7 +122,7 @@ export class FindDifferenceScene extends BaseSubScene {
 
     // ── 标题 ──
     this.titleText = this.add
-      .text(worldW / 2, 60, '找区别', {
+      .text(worldW / 2, 60, '找区别(绿色为当前选中的咸鱼) ', {
         fontFamily: 'Arial, "Microsoft YaHei", sans-serif',
         fontSize: '48px',
         color: '#ffd166'
@@ -120,7 +131,7 @@ export class FindDifferenceScene extends BaseSubScene {
 
     // ── 状态提示 ──
     this.statusText = this.add
-      .text(worldW / 2, 130, '用方向键移动，按 E 选中梦想鱼', {
+      .text(worldW / 2, 130, '使用方向键 ↑↓←→ 选中目标后按 E 确认 ', {
         fontFamily: 'Arial, "Microsoft YaHei", sans-serif',
         fontSize: '32px',
         color: '#ffd166'
@@ -136,9 +147,27 @@ export class FindDifferenceScene extends BaseSubScene {
     this.resultContainer.setVisible(false)
     this.resultContainer.setDepth(100)
 
-    // ── ESC 取消 ──
+    // ── ESC 取消（带确认弹窗） ──
     this.input.keyboard!.on('keydown-ESC', () => {
-      this.cancel()
+      if (!this.active) return
+      if (this.confirmingExit) {
+        this.hideExitConfirm()
+        return
+      }
+      this.showExitConfirm()
+    })
+
+    // Y 确认退出 / N 取消
+    this.input.keyboard!.on('keydown-Y', () => {
+      if (this.confirmingExit) {
+        this.hideExitConfirm()
+        this.cancel()
+      }
+    })
+    this.input.keyboard!.on('keydown-N', () => {
+      if (this.confirmingExit) {
+        this.hideExitConfirm()
+      }
     })
 
     // ── 键盘导航（就近选中） ──
@@ -175,6 +204,13 @@ export class FindDifferenceScene extends BaseSubScene {
     this.selectedIndex = farthestIndex
 
     this.startAllMovement()
+
+    // 文字循环：咸鱼 ↔ haam4 jyu4 每 3s 切换
+    this.textCycleTimer = this.time.addEvent({
+      delay: 3000,
+      loop: true,
+      callback: () => this.cycleFishText()
+    })
 
     // 30 秒后取消智能 AI
     this.time.delayedCall(this.smartAIDuration, () => {
@@ -223,6 +259,10 @@ export class FindDifferenceScene extends BaseSubScene {
 
       const isDream = i === this.dreamFishIndex
       const kao = shuffledKao[i % shuffledKao.length]
+
+      // 存储 kaomoji 后缀（去掉 "咸鱼\n" 前缀，用于文字循环）
+      const newlineIdx = kao.indexOf('\n')
+      this.fishKaomojiSuffix.push(newlineIdx >= 0 ? kao.substring(newlineIdx + 1) : kao)
 
       const sprite = new TextSprite(this, x, y, {
         type: 'character',
@@ -500,7 +540,7 @@ export class FindDifferenceScene extends BaseSubScene {
       this.statusText.setText('不是这条！再找找～')
       this.statusText.setColor('#ff6b6b')
       this.time.delayedCall(800, () => {
-        this.statusText.setText('用方向键移动，按 E 选中梦想鱼')
+        this.statusText.setText('使用方向键 ↑↓←→ 选中目标后按 E 确认')
         this.statusText.setColor('#ffd166')
       })
     }
@@ -510,8 +550,58 @@ export class FindDifferenceScene extends BaseSubScene {
   // 清理
   // ═══════════════════════════════════════
 
+  /** 显示退出确认弹窗 */
+  private showExitConfirm(): void {
+    this.confirmingExit = true
+    const { width: worldW, height: worldH } = this.config.worldSize
+
+    this.exitConfirmBg = this.add.graphics()
+    this.exitConfirmBg.fillStyle(0x000000, 0.7)
+    this.exitConfirmBg.fillRect(0, 0, worldW, worldH)
+    this.exitConfirmBg.setDepth(500)
+
+    this.exitConfirmText = this.add
+      .text(worldW / 2, worldH / 2, '确定要退出找区别吗？\n按 Y 确认 / 按 N 取消', {
+        fontFamily: 'Arial, "Microsoft YaHei", sans-serif',
+        fontSize: '48px',
+        color: '#ffffff',
+        align: 'center',
+        backgroundColor: 'rgba(0,0,0,0.9)',
+        padding: { x: 40, y: 30 }
+      })
+      .setOrigin(0.5)
+      .setDepth(501)
+  }
+
+  /** 隐藏退出确认弹窗 */
+  private hideExitConfirm(): void {
+    this.confirmingExit = false
+    this.exitConfirmBg?.destroy()
+    this.exitConfirmBg = null
+    this.exitConfirmText?.destroy()
+    this.exitConfirmText = null
+  }
+
+  /** 文字循环切换：咸鱼 ↔ haam4 jyu4（每 3s） */
+  private cycleFishText(): void {
+    if (!this.active) return
+    this.showPinyin = !this.showPinyin
+    const prefix = this.showPinyin ? 'haam4 jyu4' : '咸鱼'
+    const fontSize = this.showPinyin ? 25 : 28
+    for (let i = 0; i < this.fishCards.length; i++) {
+      const fish = this.fishCards[i]
+      if (!fish.sprite.active) continue
+      const newText = prefix + '\n' + this.fishKaomojiSuffix[i]
+      fish.sprite.setText(newText)
+      fish.sprite.setFontSize(fontSize)
+    }
+  }
+
   private cleanup(): void {
     this.active = false
+
+    this.textCycleTimer?.destroy()
+    this.textCycleTimer = null
 
     // 停止所有移动 tween
     for (const t of this.movementTweens) {
@@ -576,7 +666,7 @@ export class FindDifferenceScene extends BaseSubScene {
 
     // 奖励
     const rewardText = this.add
-      .text(0, 0, `获得文字: 「${this.config.reward.word}」`, {
+      .text(0, 0, `获得文字: 「咸鱼」`, {
         fontFamily: 'Arial, "Microsoft YaHei", sans-serif',
         fontSize: '40px',
         color: '#ffd166',
@@ -606,6 +696,7 @@ export class FindDifferenceScene extends BaseSubScene {
         rewards: {
           word: this.config.reward.word,
           jyutping: this.config.reward.jyutping,
+          words: ['咸', '鱼']
         }
       })
     })

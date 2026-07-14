@@ -28,9 +28,11 @@ function startGame() {
       <div class="level-desc"></div>
     </div> -->
 
-    <!-- 开始按钮(卡片风格) -->
-    <div class="start-card" @click="startGame" role="button" tabindex="0">
-      开始游戏
+    <!-- 开始按钮(摇晃广告牌风格) -->
+    <div class="signboard-wrapper">
+      <div class="start-card" @click="startGame" role="button" tabindex="0">
+        开始游戏
+      </div>
     </div>
 
     <!-- 提示 -->
@@ -104,7 +106,13 @@ function startGame() {
   margin-top: 2px;
 }
 
-/* ── 开始按钮(卡片风格) ── */
+/* ── 摇晃广告牌容器 ── */
+.signboard-wrapper {
+  transform-origin: top left;
+  animation: signboard-sway 3s ease-in-out infinite;
+}
+
+/* ── 开始按钮(卡片风格,倾斜广告牌) ── */
 .start-card {
   padding: 14px 56px;
   border: 2px solid #ffd166;
@@ -114,15 +122,32 @@ function startGame() {
   font-size: 18px;
   cursor: pointer;
   letter-spacing: 4px;
-  transition: background 0.15s ease, transform 0.1s ease;
+  transition: background 0.15s ease;
   user-select: none;
+  /* 略微倾斜,模拟破败广告牌 */
+  transform: rotate(0deg);
 }
 .start-card:hover {
   background: rgba(255, 209, 102, 0.18);
-  transform: scale(1.03);
 }
 .start-card:active {
-  transform: scale(0.98);
+  transform: scale(0.97);
+}
+
+/* 摇晃动画:围绕左上角轻轻摇摆 */
+@keyframes signboard-sway {
+  0%, 100% {
+    transform: rotate(55deg);
+  }
+  25% {
+    transform: rotate(68deg);
+  }
+  50% {
+    transform: rotate(60deg);
+  }
+  75% {
+    transform: rotate(65deg);
+  }
 }
 
 /* ── 提示 ── */

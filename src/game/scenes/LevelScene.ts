@@ -58,8 +58,12 @@ export class LevelScene extends Phaser.Scene {
   /** 当前互动提示文字(避免重复 emit) */
   private currentHint = ''
 
-  /** 追捕子场景是否已触发(防重复) */
-  private chaseTriggered = false
+  /** 追捕任务是否已完成 */
+  private chaseCompleted = false
+  /** 找区别任务是否已完成 */
+  private findDiffCompleted = false
+  /** 已收集的文字列表 */
+  private collectedWords: string[] = []
 
   constructor() {
     super(SCENE.LEVEL)
@@ -75,30 +79,6 @@ export class LevelScene extends Phaser.Scene {
     const { width: worldW, height: worldH } = LEVEL.worldSize
     this.physics.world.setBounds(0, 0, worldW, worldH)
     this.cameras.main.setBounds(0, 0, worldW, worldH)
-
-    // ── 关卡标题 ──
-    this.add
-      .text(this.cameras.main.width / 2, 28, `${LEVEL.name} · ${LEVEL.themeTag}`, {
-        fontFamily: 'Arial, "Microsoft YaHei", sans-serif',
-        fontSize: '40px',
-        color: '#ffd166'
-      })
-      .setOrigin(0.5)
-      .setScrollFactor(0)
-
-    this.add
-      .text(
-        this.cameras.main.width / 2,
-        54,
-        'A/D 移动 · W/Space 跳跃 · S 蹲下 · E 互动 · ESC 通关',
-        {
-          fontFamily: 'Arial, "Microsoft YaHei", sans-serif',
-          fontSize: '28px',
-          color: '#a0a0c0'
-        }
-      )
-      .setOrigin(0.5)
-      .setScrollFactor(0)
 
     // ── 地面 ──
     const ground = this.createPlatform(LEVEL.ground.position, LEVEL.ground.size, LEVEL.ground.card.text)
@@ -162,12 +142,20 @@ export class LevelScene extends Phaser.Scene {
       }
     )
 
-    // 揭示点检测(含登台门槛 v0.2)
+    // 揭示点检测(含登台门槛 v0.2 + 任务完成检查)
     this.physics.add.overlap(this.player, this.revealZone, () => {
       if (this.revealed) return
       const reqCoins = LEVEL.requireCoins ?? 0
       if (this.coins < reqCoins) {
         this.events.emit('show-toast', LEVEL.lockedHint ?? `还需收集 ${reqCoins - this.coins} 个汉字才能登台!`)
+        return
+      }
+      // 任务完成检查：必须完成追捕+找区别两个子场景
+      if (!this.chaseCompleted || !this.findDiffCompleted) {
+        const missing: string[] = []
+        if (!this.chaseCompleted) missing.push('和老伯聊天')
+        if (!this.findDiffCompleted) missing.push('找咸鱼')
+        this.events.emit('show-toast', `还未完成任务！请参考画面上方的任务去完成：${missing.join('、')}`)
         return
       }
       this.revealed = true
@@ -186,9 +174,8 @@ export class LevelScene extends Phaser.Scene {
           // NPC 对话:循环推进(talk() 内部循环)
           const line = this.talkingNpc.talk()
           this.events.emit('show-dialog', line)
-          // 老伯第3句对话后触发追捕子场景(talk() 播完最后一句后 currentIndex 归零)
-          if (this.talkingNpc.npcId === 'npc_oldMan' && this.talkingNpc.getCurrentIndex() === 0 && !this.chaseTriggered) {
-            this.chaseTriggered = true
+          // 老伯第3句对话后触发追捕子场景(任务未完成时可重入)
+          if (this.talkingNpc.npcId === 'npc_oldMan' && this.talkingNpc.getCurrentIndex() === 0 && !this.chaseCompleted) {
             this.closeDialog()
             this.events.emit('close-dialog')
             this.time.delayedCall(500, () => this.startChaseScene())
@@ -220,8 +207,15 @@ export class LevelScene extends Phaser.Scene {
       }
     })
 
-    // ── ESC 通关 ──
-    this.input.keyboard?.on('keydown-ESC', () => this.finishLevel())
+    // ── ESC 退出（带确认弹窗，由 UIScene 处理） ──
+    this.input.keyboard?.on('keydown-ESC', () => {
+      this.events.emit('show-exit-confirm')
+    })
+
+    // 确认退出回调
+    this.events.on('confirm-exit', () => {
+      this.finishLevel()
+    })
 
     // ── F 键测试找区别于场景 ──
     this.input.keyboard?.on('keydown-F', () => this.startFindDifferenceScene())
@@ -229,8 +223,28 @@ export class LevelScene extends Phaser.Scene {
     // 子场景结果监听
     this.events.on('subscene-result', (result: any) => {
       if (result.outcome === 'success') {
-        // 足球子场景:收集文字奖励
-        if (result.rewards?.word && result.rewards?.jyutping) {
+        // 追捕子场景:收集「梦想」
+        if (result.subSceneId === 'chase_oldman') {
+          this.chaseCompleted = true
+          const words = ['梦', '想']
+          this.addCollectedWords(words)
+          this.emitTaskUpdate()
+          this.events.emit('show-toast', '追捕成功! 收集到「梦想」')
+          // 引导玩家去「找区别」子场景
+          this.time.delayedCall(2500, () => {
+            this.events.emit('show-toast', '前面有个「找区别」的地方，去看看吧！')
+          })
+        }
+        // 找区别于场景:收集「咸鱼」
+        else if (result.subSceneId === 'find_difference') {
+          this.findDiffCompleted = true
+          const words = ['咸', '鱼']
+          this.addCollectedWords(words)
+          this.emitTaskUpdate()
+          this.events.emit('show-toast', '找到了！收集到「咸鱼」')
+        }
+        // 其他子场景:收集文字奖励
+        else if (result.rewards?.word && result.rewards?.jyutping) {
           this.coins++
           this.emitHudUpdate()
           eventBus.emit({
@@ -239,15 +253,14 @@ export class LevelScene extends Phaser.Scene {
             count: this.coins
           })
           this.events.emit('show-toast', `获得文字「${result.rewards.word}」! 已收集 ${this.coins}/${LEVEL.totalCoins} 字`)
-        } else {
-          this.events.emit('show-toast', '追捕成功!')
-          // 引导玩家去「找区别」子场景
-          this.time.delayedCall(2500, () => {
-            this.events.emit('show-toast', '前面有个「找区别」的地方，去看看吧！')
-          })
         }
       } else {
-        this.events.emit('show-toast', '追捕取消')
+        // 取消/失败:如果任务未完成,重置可互动物件
+        if (result.subSceneId === 'find_difference' && !this.findDiffCompleted) {
+          const intObj = this.interactables.find(o => o.action === 'find_difference')
+          intObj?.reset()
+        }
+        this.events.emit('show-toast', result.subSceneId === 'chase_oldman' ? '追捕取消,可重新找老伯' : '找区别取消,可重新尝试')
       }
     })
 
@@ -274,7 +287,7 @@ export class LevelScene extends Phaser.Scene {
 
     // 初始引导:提示玩家去找老伯
     this.time.delayedCall(800, () => {
-      this.events.emit('show-toast', '去找老伯聊聊吧！')
+      this.events.emit('show-toast', '去找老伯聊聊吧！按 E 互动')
     })
   }
 
@@ -355,7 +368,7 @@ export class LevelScene extends Phaser.Scene {
         this.events.emit('show-toast', `发现隐藏金币: ${coinData.word}`)
       }
     }
-    this.events.emit('show-toast', '咸鱼弹开了!隐藏路径(待实现)...')
+    this.events.emit('show-toast', '触发隐藏剧情(但还没开始做)继续走吧...')
   }
 
   /** 关闭对话(玩家走远或按 E 结束时调用) */
@@ -403,15 +416,23 @@ export class LevelScene extends Phaser.Scene {
       }
     }
 
-    // 互动提示(靠近可互动物件时显示;对话中不显示避免误导)
+    // 互动提示(靠近可互动物件或 NPC 时显示;对话中不显示避免误导)
     if (this.dialogActive) {
       if (this.currentHint !== '') {
         this.currentHint = ''
         this.events.emit('hide-interact-hint')
       }
     } else {
+      // 优先显示可互动物件提示
       const nearbyInt = this.findNearbyInteractable(this.player.x, this.player.y)
-      const hint = nearbyInt?.interactHint ?? ''
+      let hint = nearbyInt?.interactHint ?? ''
+      // 无互动物件时，检查附近 NPC
+      if (!hint) {
+        const nearbyNpc = this.findNearbyNpc(this.player.x, this.player.y)
+        if (nearbyNpc) {
+          hint = '按 E 聊天'
+        }
+      }
       if (hint !== this.currentHint) {
         this.currentHint = hint
         if (hint) {
@@ -425,6 +446,24 @@ export class LevelScene extends Phaser.Scene {
 
   private emitHudUpdate(): void {
     this.events.emit('hud-update', { coins: this.coins })
+  }
+
+  /** 添加收集文字并通知 UIScene */
+  private addCollectedWords(words: string[]): void {
+    for (const w of words) {
+      if (!this.collectedWords.includes(w)) {
+        this.collectedWords.push(w)
+      }
+    }
+    this.events.emit('collection-update', { words: [...this.collectedWords] })
+  }
+
+  /** 发送任务状态更新到 UIScene */
+  private emitTaskUpdate(): void {
+    this.events.emit('task-update', {
+      chase: this.chaseCompleted,
+      findDifference: this.findDiffCompleted
+    })
   }
 
   private finishLevel(): void {

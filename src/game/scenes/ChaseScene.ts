@@ -75,6 +75,30 @@ export class ChaseScene extends BaseSubScene {
   /** 场景中所有静态障碍物(用于视线检测) */
   private obstacles: Phaser.GameObjects.GameObject[] = []
 
+  // ── 文字循环：梦想 ↔ mung6 soeng2 ──
+  /** 文字循环计时器(3s 切换) */
+  private textCycleTimer: Phaser.Time.TimerEvent | null = null
+  private showPinyin = false
+  private readonly STATE_TEXTS: Record<string, string> = {
+    idle: '梦想\n(´・ω・`)\n发呆中',
+    patrol: '梦想\n(｀・ω・´)\n巡逻中',
+    flee: '梦想\n(；´Д｀)\n逃跑中',
+    caught: '梦想\n(；ω；`)\n被抓住了',
+    flee_empty: '梦想\n(´；ω；`)\n没子弹了'
+  }
+  private readonly STATE_TEXTS_PINYIN: Record<string, string> = {
+    idle: 'mung6 soeng2\n(´・ω・`)\n发呆中',
+    patrol: 'mung6 soeng2\n(｀・ω・´)\n巡逻中',
+    flee: 'mung6 soeng2\n(；´Д｀)\n逃跑中',
+    caught: 'mung6 soeng2\n(；ω；`)\n被抓住了',
+    flee_empty: 'mung6 soeng2\n(´；ω；`)\n没子弹了'
+  }
+
+  // ── ESC 退出确认 ──
+  private confirmingExit = false
+  private exitConfirmBg: Phaser.GameObjects.Graphics | null = null
+  private exitConfirmText: Phaser.GameObjects.Text | null = null
+
   // ── 预测轨迹可视化 ──
   /** 最近一次预测结果(用于绘制轨迹) */
   private lastPrediction: PredictionResult | null = null
@@ -217,6 +241,12 @@ export class ChaseScene extends BaseSubScene {
         flee_empty: '梦想\n(´；ω；`)\n没子弹了'
       }
     )
+    // 文字循环：梦想 ↔ mung6 soeng2 每 3s 切换
+    this.textCycleTimer = this.time.addEvent({
+      delay: 3000,
+      loop: true,
+      callback: () => this.cycleFugitiveText()
+    })
     this.fugitive.onCaught = () => {
       this.onCatch()
     }
@@ -261,9 +291,27 @@ export class ChaseScene extends BaseSubScene {
       }
     })
 
-    // ESC 取消
+    // ESC 取消（带确认弹窗）
     this.input.keyboard!.on('keydown-ESC', () => {
-      this.cancel()
+      if (this.caught) return // 已抓到，不处理 ESC
+      if (this.confirmingExit) {
+        this.hideExitConfirm()
+        return
+      }
+      this.showExitConfirm()
+    })
+
+    // Y 确认退出 / N 取消
+    this.input.keyboard!.on('keydown-Y', () => {
+      if (this.confirmingExit) {
+        this.hideExitConfirm()
+        this.cancel()
+      }
+    })
+    this.input.keyboard!.on('keydown-N', () => {
+      if (this.confirmingExit) {
+        this.hideExitConfirm()
+      }
     })
 
     // ── v0.4 测试:慢动作 + 雨系统 ──
@@ -281,11 +329,11 @@ export class ChaseScene extends BaseSubScene {
 
     // 状态提示文字(顶部,与标题形成信息区)
     this.slowMoStatusText = this.add
-      .text(worldW / 2, 90, '追近逃跑者并跳跃触发子弹时间 | T键手动切换', {
+      .text(worldW / 2, 90, '', {
         fontFamily: 'Arial, "Microsoft YaHei", sans-serif',
         fontSize: '24px',
         color: '#a0a0c0',
-        backgroundColor: 'rgba(0,0,0,0.5)',
+        // backgroundColor: 'rgba(0,0,0,0.5)',
         padding: { x: 16, y: 6 }
       })
       .setOrigin(0.5)
@@ -302,6 +350,7 @@ export class ChaseScene extends BaseSubScene {
       this.freezeTimer?.destroy()
       this.countdownText?.destroy()
       this.predictionGfx?.destroy()
+      this.textCycleTimer?.destroy()
       this.rainManager?.destroy()
       SlowMoManager.getInstance().destroy()
     })
@@ -367,7 +416,10 @@ export class ChaseScene extends BaseSubScene {
       this.complete({
         subSceneId: this.chaseConfig.id,
         outcome: 'success',
-        rewards: this.chaseConfig.onComplete
+        rewards: {
+          ...this.chaseConfig.onComplete,
+          words: ['梦', '想']
+        }
       })
       return
     }
@@ -1094,7 +1146,7 @@ export class ChaseScene extends BaseSubScene {
   }
 
   /** 切换慢放状态(T 键触发,保留用于调试) */
-  private toggleSlowMo(): void {
+    private toggleSlowMo(): void {
     this.slowMoActive = !this.slowMoActive
     const slowMo = SlowMoManager.getInstance()
 
@@ -1102,11 +1154,56 @@ export class ChaseScene extends BaseSubScene {
       const timeScale = 1 / SLOWMO.SPEED
       slowMo.setTimeScale(timeScale, SLOWMO.TRANSITION_IN_MS)
       const pct = Math.round(SLOWMO.SPEED * 100)
-      this.slowMoStatusText?.setText(`按 T 切换慢放 | 当前: 慢放中 (${pct}%)`)
+      this.slowMoStatusText?.setText(`按 T 开启/停止慢放 | 当前: 慢放中 (${pct}%)`)
     } else {
       slowMo.resume(SLOWMO.TRANSITION_OUT_MS)
-      this.slowMoStatusText?.setText('按 T 切换慢放 | 当前: 正常')
+      this.slowMoStatusText?.setText('按 T 开启/停止慢放 | 当前: 正常')
     }
+  }
+  /** 显示退出确认弹窗 */
+  private showExitConfirm(): void {
+    this.confirmingExit = true
+    const { width: worldW, height: worldH } = this.chaseConfig.worldSize
+
+    this.exitConfirmBg = this.add.graphics()
+    this.exitConfirmBg.fillStyle(0x000000, 0.7)
+    this.exitConfirmBg.fillRect(0, 0, worldW, worldH)
+    this.exitConfirmBg.setDepth(500)
+
+    this.exitConfirmText = this.add
+      .text(worldW / 2, worldH / 2, '确定要退出追捕吗？\n按 Y 确认 / 按 N 取消', {
+        fontFamily: 'Arial, "Microsoft YaHei", sans-serif',
+        fontSize: '48px',
+        color: '#ffffff',
+        align: 'center',
+        backgroundColor: 'rgba(0,0,0,0.9)',
+        padding: { x: 40, y: 30 }
+      })
+      .setOrigin(0.5)
+      .setDepth(501)
+  }
+
+  /** 隐藏退出确认弹窗 */
+  private hideExitConfirm(): void {
+    this.confirmingExit = false
+    this.exitConfirmBg?.destroy()
+    this.exitConfirmBg = null
+    this.exitConfirmText?.destroy()
+    this.exitConfirmText = null
+  }
+
+  /** 文字循环切换：梦想 ↔ mung6 soeng2（每 3s） */
+  private cycleFugitiveText(): void {
+    if (!this.fugitive || !this.fugitive.active) return
+    // 子弹时间暂停期间不切换（子弹时间有自己的文字覆盖）
+    if (this.fugitive.getAiState() === 'caught') return
+    this.showPinyin = !this.showPinyin
+    const state = this.fugitive.getAiState()
+    const text = this.showPinyin
+      ? this.STATE_TEXTS_PINYIN[state] ?? this.STATE_TEXTS_PINYIN.idle
+      : this.STATE_TEXTS[state] ?? this.STATE_TEXTS.idle
+    this.fugitive.setText(text)
+    this.fugitive.setFontSize(this.showPinyin ? 20 : 28)
   }
 
   /** 创建平台(带物理碰撞) */

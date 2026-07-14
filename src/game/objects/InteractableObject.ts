@@ -50,6 +50,11 @@ export class InteractableObject extends TextSprite {
     return true
   }
 
+  /** 重置互动状态（任务未完成时允许重新进入子场景） */
+  reset(): void {
+    this.consumed = false
+  }
+
   /** 弹开动效(踢咸鱼/踢足球用) */
   playKickEffect(): void {
     this.scene.tweens.add({

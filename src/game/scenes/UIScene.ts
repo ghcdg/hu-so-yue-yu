@@ -6,11 +6,12 @@
  * 原则:不处理游戏逻辑,只响应 LevelScene 的事件
  *
  * 监听事件(来自 LevelScene.events):
- * - 'hud-update':更新金币数
  * - 'show-dialog' / 'close-dialog':对话卡片
  * - 'show-interact-hint' / 'hide-interact-hint':互动提示
  * - 'show-toast':Toast 提示(捡金币/触发机关等)
  * - 'reveal-sentence':句子揭示全屏卡片
+ * - 'task-update':任务状态更新
+ * - 'collection-update':收集文字更新
  */
 import Phaser from 'phaser'
 import { SCENE, COLORS, GAME_SIZE } from '@/shared/constants'
@@ -19,7 +20,10 @@ import type { DialogueData } from '@/game/data/types'
 import type { Sentence } from '@/shared/types'
 
 export class UIScene extends Phaser.Scene {
-  private coinText!: Phaser.GameObjects.Text
+
+  // ── 顶部 HUD ──
+  private taskText!: Phaser.GameObjects.Text
+  private collectionText!: Phaser.GameObjects.Text
 
   // 对话卡片
   private dialogCard: TextSprite | null = null
@@ -40,30 +44,63 @@ export class UIScene extends Phaser.Scene {
   /** reveal 模式下键盘监听器引用(用于 shutdown 清理) */
   private revealKeyHandler: (() => void) | null = null
 
+  // ── 任务/收集状态 ──
+  private chaseCompleted = false
+  private findDiffCompleted = false
+  private collectedWords: string[] = []
+
+  // ── ESC 退出确认 ──
+  private confirmingExit = false
+  private exitConfirmBg: Phaser.GameObjects.Graphics | null = null
+  private exitConfirmText: Phaser.GameObjects.Text | null = null
+
   constructor() {
     super(SCENE.UI)
   }
 
   create(): void {
     const { WIDTH } = GAME_SIZE
+    const HUD_HEIGHT = 80
 
-    // ── 顶部 HUD ──
-    this.add.rectangle(0, 0, WIDTH, 96, COLORS.BG_LIGHT, 0.85).setOrigin(0, 0).setScrollFactor(0)
-    this.coinText = this.add
-      .text(40, 28, '金币: 0', {
-        fontFamily: 'Arial, "Microsoft YaHei", sans-serif',
-        fontSize: '36px',
-        color: '#ffd166'
-      })
-      .setScrollFactor(0)
+    // ── 顶部 HUD 背景 ──
     this.add
-      .text(WIDTH - 40, 28, 'ESC = 通关结算', {
+      .rectangle(0, 0, WIDTH, HUD_HEIGHT, COLORS.BG_LIGHT, 0.9)
+      .setOrigin(0, 0)
+      .setScrollFactor(0)
+
+    // 操作提示(左侧)
+    this.add
+      .text(24, HUD_HEIGHT / 2, '方向键: ←左/右→ 移动 · 空格/上↑ 跳跃 · E 互动 · ESC 退出', {
         fontFamily: 'Arial, "Microsoft YaHei", sans-serif',
-        fontSize: '28px',
+        fontSize: '26px',
         color: '#a0a0c0'
       })
-      .setOrigin(1, 0)
+      .setOrigin(0, 0.5)
       .setScrollFactor(0)
+
+    // 任务状态(居中偏右)
+    this.taskText = this.add
+      .text(WIDTH / 2 + 160, HUD_HEIGHT / 2, '', {
+        fontFamily: 'Arial, "Microsoft YaHei", sans-serif',
+        fontSize: '26px',
+        color: '#ffd166'
+      })
+      .setOrigin(0.5)
+      .setScrollFactor(0)
+
+    // 收集文字(右侧)
+    this.collectionText = this.add
+      .text(WIDTH - 24, HUD_HEIGHT / 2, '', {
+        fontFamily: 'Arial, "Microsoft YaHei", sans-serif',
+        fontSize: '26px',
+        color: '#a0a0c0'
+      })
+      .setOrigin(1, 0.5)
+      .setScrollFactor(0)
+
+    // 初始化任务显示
+    this.updateTaskDisplay()
+    this.updateCollectionDisplay()
 
     // 对话说话人标签(初始隐藏,位于气泡上方)
     this.dialogSpeaker = this.add
@@ -103,10 +140,6 @@ export class UIScene extends Phaser.Scene {
     // ── 监听 LevelScene 事件 ──
     const levelScene = this.scene.get(SCENE.LEVEL)
 
-    levelScene.events.on('hud-update', (data: { coins: number }) => {
-      this.coinText.setText(`金币: ${data.coins}`)
-    })
-
     levelScene.events.on('show-dialog', (line: DialogueData) => {
       this.showDialog(line)
     })
@@ -130,11 +163,106 @@ export class UIScene extends Phaser.Scene {
     levelScene.events.on('reveal-sentence', (sentence: Sentence) => {
       this.showReveal(sentence)
     })
+
+    // 任务状态更新
+    levelScene.events.on('task-update', (data: { chase: boolean; findDifference: boolean }) => {
+      this.chaseCompleted = data.chase
+      this.findDiffCompleted = data.findDifference
+      this.updateTaskDisplay()
+    })
+
+    // 收集文字更新
+    levelScene.events.on('collection-update', (data: { words: string[] }) => {
+      this.collectedWords = data.words
+      this.updateCollectionDisplay()
+    })
+
+    // ── ESC 退出确认 ──
+    levelScene.events.on('show-exit-confirm', () => {
+      this.showExitConfirm()
+    })
+
+    // Y 确认退出 / N 取消
+    this.input.keyboard?.on('keydown-Y', () => {
+      if (this.confirmingExit) {
+        this.hideExitConfirm()
+        levelScene.events.emit('confirm-exit')
+      }
+    })
+    this.input.keyboard?.on('keydown-N', () => {
+      if (this.confirmingExit) {
+        this.hideExitConfirm()
+      }
+    })
+  }
+
+  /** 更新任务状态显示 */
+  private updateTaskDisplay(): void {
+    const chase = this.chaseCompleted ? '✓' : '待完成'
+    const diff = this.findDiffCompleted ? '✓' : '待完成'
+    this.taskText.setText(`任务1: 和老伯聊天 [${chase}]    任务2:找咸鱼 [${diff}]`)
+  }
+
+  /** 更新收集文字显示 */
+  private updateCollectionDisplay(): void {
+    if (this.collectedWords.length === 0) {
+      this.collectionText.setText('')
+      return
+    }
+    // 文字拼音映射
+    const pinyinMap: Record<string, string> = {
+      '梦想': 'mung6 soeng2',
+      '咸鱼': 'haam4 jyu4'
+    }
+    // 按顺序分组显示（梦+想 → 梦想，咸+鱼 → 咸鱼）
+    const joined = this.collectedWords.join('')
+    const items: string[] = []
+    for (const [word, pinyin] of Object.entries(pinyinMap)) {
+      if (joined.includes(word)) {
+        items.push(`${word}(${pinyin})`)
+      }
+    }
+    this.collectionText.setText(`背包: ${items.join(' ')}`)
   }
 
   // ──────────────────────────────────────────────
   // 对话卡片(底部聊天气泡)
   // ──────────────────────────────────────────────
+
+  /** 显示退出确认弹窗 */
+  private showExitConfirm(): void {
+    if (this.confirmingExit) return
+    this.confirmingExit = true
+    const { WIDTH, HEIGHT } = GAME_SIZE
+
+    this.exitConfirmBg = this.add.graphics()
+    this.exitConfirmBg.fillStyle(0x000000, 0.7)
+    this.exitConfirmBg.fillRect(0, 0, WIDTH, HEIGHT)
+    this.exitConfirmBg.setScrollFactor(0)
+    this.exitConfirmBg.setDepth(500)
+
+    this.exitConfirmText = this.add
+      .text(WIDTH / 2, HEIGHT / 2, '确定要退出关卡吗？\n按 Y 确认 / 按 N 取消', {
+        fontFamily: 'Arial, "Microsoft YaHei", sans-serif',
+        fontSize: '48px',
+        color: '#ffffff',
+        align: 'center',
+        backgroundColor: 'rgba(0,0,0,0.9)',
+        padding: { x: 40, y: 30 }
+      })
+      .setOrigin(0.5)
+      .setScrollFactor(0)
+      .setDepth(501)
+  }
+
+  /** 隐藏退出确认弹窗 */
+  private hideExitConfirm(): void {
+    this.confirmingExit = false
+    this.exitConfirmBg?.destroy()
+    this.exitConfirmBg = null
+    this.exitConfirmText?.destroy()
+    this.exitConfirmText = null
+  }
 
   private showDialog(line: DialogueData): void {
     this.hideDialog()
@@ -176,9 +304,24 @@ export class UIScene extends Phaser.Scene {
 
   private showToast(text: string): void {
     this.toastText?.destroy()
-    const { WIDTH, HEIGHT } = GAME_SIZE
+    const { WIDTH } = GAME_SIZE
+
+    // 获取 player 的屏幕坐标，将 toast 放在 player 头部上方 20px
+    let toastX = WIDTH / 2
+    let toastY = 200
+    const levelScene = this.scene.get(SCENE.LEVEL)
+    if (levelScene) {
+      const player = (levelScene as any).player
+      if (player) {
+        const cam = levelScene.cameras.main
+        toastX = player.x - cam.scrollX
+        // player 卡片高度约 60px，头部在 y - 30 处，再往上 50px
+        toastY = player.y - 30 - 50 - cam.scrollY
+      }
+    }
+
     this.toastText = this.add
-      .text(WIDTH / 2, HEIGHT - 320, text, {
+      .text(toastX, toastY, text, {
         fontFamily: 'Arial, "Microsoft YaHei", sans-serif',
         fontSize: '30px',
         color: '#ffffff',
@@ -193,7 +336,7 @@ export class UIScene extends Phaser.Scene {
     this.tweens.add({
       targets: this.toastText,
       alpha: 0,
-      duration: 2500,
+      duration: 4000,
       delay: 600,
       ease: 'Cubic.easeIn',
       onComplete: () => {
@@ -217,8 +360,8 @@ export class UIScene extends Phaser.Scene {
       .setScrollFactor(0)
 
     // 揭示卡片(result 类型)
-    const cardW = 1440
-    const cardH = 560
+    const cardW = 1700
+    const cardH = 750
     this.revealCard = new TextSprite(this, WIDTH / 2, HEIGHT / 2 - 40, {
       type: 'result',
       text: sentence.cantonese,
@@ -230,9 +373,9 @@ export class UIScene extends Phaser.Scene {
 
     // 普通话释义
     const mandarinText = this.add
-      .text(WIDTH / 2, HEIGHT / 2 + 160, sentence.mandarin, {
+      .text(WIDTH / 2, HEIGHT / 2 + 110, sentence.mandarin, {
         fontFamily: 'Arial, "Microsoft YaHei", sans-serif',
-        fontSize: '36px',
+        fontSize: '24px',
         color: '#a0a0c0',
         align: 'center',
         wordWrap: { width: cardW - 80 }
@@ -243,9 +386,9 @@ export class UIScene extends Phaser.Scene {
     // 来源
     if (sentence.source) {
       this.revealSource = this.add
-        .text(WIDTH / 2, HEIGHT / 2 + 240, `—— ${sentence.source}`, {
+        .text(WIDTH / 2, HEIGHT / 2 + 150, `—— ${sentence.source}`, {
           fontFamily: 'Arial, "Microsoft YaHei", sans-serif',
-          fontSize: '28px',
+          fontSize: '20px',
         color: '#6a6a8a'
         })
         .setOrigin(0.5)
@@ -254,7 +397,7 @@ export class UIScene extends Phaser.Scene {
 
     // 提示
     this.revealHint = this.add
-      .text(WIDTH / 2, HEIGHT - 120, '按任意键继续(ESC 通关结算)', {
+      .text(WIDTH / 2, HEIGHT - 100, '按任意键继续(ESC 通关结算)', {
         fontFamily: 'Arial, "Microsoft YaHei", sans-serif',
         fontSize: '28px',
         color: '#ffd166'

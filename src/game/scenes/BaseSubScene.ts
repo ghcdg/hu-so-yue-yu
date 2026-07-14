@@ -33,6 +33,8 @@ export interface SubSceneResult {
     jyutping?: string
     /** 足球子场景:命中区域 */
     zone?: string
+    /** 收集的文字列表(任务系统) */
+    words?: string[]
   }
 }
 

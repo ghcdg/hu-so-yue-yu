@@ -84,7 +84,7 @@
       "type": "static",
       "position": { "x": 3900, "y": 760 },
       "size": { "width": 200, "height": 40 },
-      "card": { "type": "object", "text": "砖块2", "suffix": ".jpg" }
+      "card": { "type": "object", "text": "甲方广告(误)", "suffix": ".jpg" }
     },
     {
       "id": "platform_challenge_3",
@@ -98,7 +98,7 @@
       "type": "static",
       "position": { "x": 4500, "y": 400 },
       "size": { "width": 400, "height": 40 },
-      "card": { "type": "object", "text": "揭示平台", "suffix": ".jpg" }
+      "card": { "type": "object", "text": "目标平台", "suffix": ".jpg" }
     }
   ],
   "coins": [
@@ -134,10 +134,10 @@
     {
       "id": "int_scroll_billboard",
       "card": {
-        "type": "object", "text": "甲方广告", "suffix": ".gif",
+        "type": "object", "text": "广告: 先进团队用钉钉", "suffix": ".gif",
         "scrollSpeed": 5, "interactable": true, "interactHint": "按 E 踢一脚"
       },
-      "position": { "x": 3900, "y": 680 },
+      "position": { "x": 3900, "y": 655 },
       "action": "kick_fish"
     }
   ],

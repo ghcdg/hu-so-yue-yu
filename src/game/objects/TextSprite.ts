@@ -151,6 +151,7 @@ export class TextSprite extends Phaser.GameObjects.Container {
   private scrollDisplayLength = 0
   private scrollLongText = ''
   private scrollFontSize = 16
+  private lastScrollIntOffset = -1 // 缓存上一次整数偏移，减少 setText() 调用
 
   // 文字裁剪 mask(仅 .gif 模式,放在 scene 层级避免遮文字)
   private clipMask: Phaser.Display.Masks.GeometryMask | null = null
@@ -498,6 +499,12 @@ export class TextSprite extends Phaser.GameObjects.Container {
     return this
   }
 
+  /** 修改主文字字体大小 */
+  setFontSize(size: number): this {
+    this.mainText.setFontSize(size)
+    return this
+  }
+
   /** 修改头部文字（split 布局专用） */
   setHeaderText(text: string): this {
     this.config.headerText = text
@@ -610,6 +617,7 @@ export class TextSprite extends Phaser.GameObjects.Container {
     )
     this.scrollLongText = Array(repeatCount).fill(base).join(SCROLL_SEPARATOR)
     this.scrollCharOffset = 0
+    this.lastScrollIntOffset = -1
     // .gif 滚动文字:左对齐到卡片内边界,便于像素级 x 偏移实现丝滑滚动
     this.mainText.setOrigin(0, 0.5)
     this.mainText.x = -innerWidth / 2
@@ -623,19 +631,23 @@ export class TextSprite extends Phaser.GameObjects.Container {
     const offset = ((this.scrollCharOffset % totalLen) + totalLen) % totalLen
     const intOffset = Math.floor(offset)
     const frac = offset - intOffset
-    // 多取 1 字符,用 mainText.x 偏移 frac 个字符宽度
-    let display = this.scrollLongText.substring(
-      intOffset,
-      intOffset + this.scrollDisplayLength + 1
-    )
-    // 循环补齐(防止末尾不足)
-    if (display.length < this.scrollDisplayLength + 1) {
-      display += this.scrollLongText.substring(
-        0,
-        this.scrollDisplayLength + 1 - display.length
+    // 优化：仅在整数偏移变化时更新文字内容，减少 setText() 触发 Canvas 重绘
+    if (intOffset !== this.lastScrollIntOffset) {
+      this.lastScrollIntOffset = intOffset
+      // 多取 1 字符,用 mainText.x 偏移 frac 个字符宽度
+      let display = this.scrollLongText.substring(
+        intOffset,
+        intOffset + this.scrollDisplayLength + 1
       )
+      // 循环补齐(防止末尾不足)
+      if (display.length < this.scrollDisplayLength + 1) {
+        display += this.scrollLongText.substring(
+          0,
+          this.scrollDisplayLength + 1 - display.length
+        )
+      }
+      this.mainText.setText(display)
     }
-    this.mainText.setText(display)
     // 像素级偏移:向左移动 frac 个字符宽度,视觉上文字连续滚动
     const innerWidth = this.cardWidth - this.borderWidth * 2 - 16
     this.mainText.x = -innerWidth / 2 - frac * this.scrollFontSize
