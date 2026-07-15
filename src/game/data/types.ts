@@ -5,11 +5,11 @@
 import type { TextSpriteConfig } from '@/game/objects/TextSprite'
 import type { Sentence } from '@/shared/types'
 
-/** 目标句子(粤语 + 粤拼 + 普通话释义) */
+/** 目标句子(粤语朗读 + 粤语展示 + 普通话展示) */
 export interface SentenceData {
-  cantonese: string
-  jyutping: string
-  mandarin: string
+  cantonese_read: string
+  cantonese_show: string
+  mandarin_show: string
   source?: string
 }
 
@@ -190,9 +190,9 @@ export interface FindDifferenceSceneConfig {
 /** 将 SentenceData 转为 Sentence(shared 类型) */
 export function toSentence(s: SentenceData): Sentence {
   return {
-    cantonese: s.cantonese,
-    jyutping: s.jyutping,
-    mandarin: s.mandarin,
+    cantonese_read: s.cantonese_read,
+    cantonese_show: s.cantonese_show,
+    mandarin_show: s.mandarin_show,
     source: s.source
   }
 }

@@ -16,14 +16,14 @@ export interface LevelResult {
   epilogue?: { speaker: string; lines: string[] }
 }
 
-/** 最终揭示的句子(粤语 + 粤拼 + 普通话释义) */
+/** 最终揭示的句子(粤语朗读 + 粤语展示 + 普通话展示) */
 export interface Sentence {
-  /** 粤语原版 */
-  cantonese: string
-  /** 粤拼 */
-  jyutping: string
-  /** 普通话释义 */
-  mandarin: string
+  /** 粤语朗读版(纯粤语文字, 用于 TTS 朗读) */
+  cantonese_read: string
+  /** 粤语展示版(含粤拼标注, 用于画面显示) */
+  cantonese_show: string
+  /** 普通话展示版(用于画面显示) */
+  mandarin_show: string
   /** 来源(如:周星驰《少林足球》) */
   source?: string
 }

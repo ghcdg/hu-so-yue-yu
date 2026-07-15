@@ -18,6 +18,7 @@ import { SCENE, COLORS, GAME_SIZE } from '@/shared/constants'
 import { TextSprite } from '@/game/objects/TextSprite'
 import type { DialogueData } from '@/game/data/types'
 import type { Sentence } from '@/shared/types'
+import { CantoneseSpeaker } from '@/speakers/CantoneseSpeaker'
 
 export class UIScene extends Phaser.Scene {
 
@@ -53,6 +54,9 @@ export class UIScene extends Phaser.Scene {
   private confirmingExit = false
   private exitConfirmBg: Phaser.GameObjects.Graphics | null = null
   private exitConfirmText: Phaser.GameObjects.Text | null = null
+
+  // ── 粤语 TTS ──
+  private cantoneseSpeaker = new CantoneseSpeaker()
 
   constructor() {
     super(SCENE.UI)
@@ -316,7 +320,7 @@ export class UIScene extends Phaser.Scene {
         const cam = levelScene.cameras.main
         toastX = player.x - cam.scrollX
         // player 卡片高度约 60px，头部在 y - 30 处，再往上 50px
-        toastY = player.y - 30 - 50 - cam.scrollY
+        toastY = player.y - 30 - 80 - cam.scrollY
       }
     }
 
@@ -359,23 +363,23 @@ export class UIScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setScrollFactor(0)
 
-    // 揭示卡片(result 类型)
-    const cardW = 1700
-    const cardH = 750
-    this.revealCard = new TextSprite(this, WIDTH / 2, HEIGHT / 2 - 40, {
+    // 揭示卡片(result 类型, 3400×1500)
+    // 显示 cantonese_show(含粤拼标注), 文字统一 80px
+    const cardW = 3400
+    const cardH = 1500
+    this.revealCard = new TextSprite(this, WIDTH / 2, HEIGHT / 2, {
       type: 'result',
-      text: sentence.cantonese,
-      subtitle: sentence.jyutping,
-      suffix: '.jpg',
+      text: sentence.cantonese_show,
       size: { width: cardW, height: cardH }
     })
     this.revealCard.setScrollFactor(0)
+    this.revealCard.setFontSize(80)
 
-    // 普通话释义
+    // 普通话释义(与粤语上下对齐, 80px)
     const mandarinText = this.add
-      .text(WIDTH / 2, HEIGHT / 2 + 110, sentence.mandarin, {
+      .text(WIDTH / 2, HEIGHT / 2 + 160, sentence.mandarin_show, {
         fontFamily: 'Arial, "Microsoft YaHei", sans-serif',
-        fontSize: '24px',
+        fontSize: '80px',
         color: '#a0a0c0',
         align: 'center',
         wordWrap: { width: cardW - 80 }
@@ -383,12 +387,12 @@ export class UIScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setScrollFactor(0)
 
-    // 来源
+    // 来源(80px)
     if (sentence.source) {
       this.revealSource = this.add
-        .text(WIDTH / 2, HEIGHT / 2 + 150, `—— ${sentence.source}`, {
+        .text(WIDTH / 2, HEIGHT / 2 + 260, `—— ${sentence.source}`, {
           fontFamily: 'Arial, "Microsoft YaHei", sans-serif',
-          fontSize: '20px',
+          fontSize: '80px',
         color: '#6a6a8a'
         })
         .setOrigin(0.5)
@@ -405,8 +409,12 @@ export class UIScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setScrollFactor(0)
 
+    // 粤语 TTS 朗读 cantonese_read(fire-and-forget)
+    void this.cantoneseSpeaker.speak(sentence.cantonese_read)
+
     // 任意键关闭(用 once 避免重复)
     const handler = () => {
+      this.cantoneseSpeaker.stop()
       this.revealCard?.destroy()
       this.revealOverlay?.destroy()
       this.revealSource?.destroy()
@@ -428,6 +436,7 @@ export class UIScene extends Phaser.Scene {
   /** 场景关闭时清理(防止内存泄漏) */
   private onShutdown(): void {
     this.events.off('shutdown', this.onShutdown, this)
+    this.cantoneseSpeaker.stop()
     // 清理 reveal 键盘监听器
     if (this.revealKeyHandler) {
       this.input.keyboard?.off('keydown', this.revealKeyHandler)

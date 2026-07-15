@@ -70,8 +70,6 @@ export class ChaseScene extends BaseSubScene {
   private bulletTimeTimer: Phaser.Time.TimerEvent | null = null
   /** 冻结阶段计时器(1s 后进入慢动作) */
   private freezeTimer: Phaser.Time.TimerEvent | null = null
-  /** 冻结倒计时文字(0.9→0.1) */
-  private countdownText: Phaser.GameObjects.Text | null = null
   /** 场景中所有静态障碍物(用于视线检测) */
   private obstacles: Phaser.GameObjects.GameObject[] = []
 
@@ -348,7 +346,6 @@ export class ChaseScene extends BaseSubScene {
     this.events.once('shutdown', () => {
       this.bulletTimeTimer?.destroy()
       this.freezeTimer?.destroy()
-      this.countdownText?.destroy()
       this.predictionGfx?.destroy()
       this.textCycleTimer?.destroy()
       this.rainManager?.destroy()
@@ -900,18 +897,13 @@ export class ChaseScene extends BaseSubScene {
       // 闪现提示
       this.showFlashHint(targetX, targetY)
 
-      // 清理倒计时
-      this.countdownText?.destroy()
-      this.countdownText = null
-
       this.logFugitiveState('[BT-SLOWMO] started')
 
       // 进入慢动作
       const timeScale = 1 / SLOWMO.SPEED
       slowMo.setTimeScale(timeScale, SLOWMO.TRANSITION_IN_MS)
 
-      const pct = Math.round(SLOWMO.SPEED * 100)
-      this.slowMoStatusText?.setText(`子弹时间! 慢放中 (${pct}%)`)
+      // 倒计时回调会自动更新 slowMoStatusText，此处不覆盖
 
       // 慢动作期间诊断日志
       this.time.addEvent({
@@ -1066,27 +1058,19 @@ export class ChaseScene extends BaseSubScene {
     this.predictionGfx.fillCircle(px, py, 4)
   }
 
-  /** 显示冻结倒计时(0.9 → 0.1, 每 100ms 更新) */
+  /** 显示子弹时间倒计时(4.0 → 0.0, 每 100ms 更新, 显示在 slowMoStatusText 后面) */
   private showCountdown(): void {
-    const { width: worldW, height: worldH } = this.chaseConfig.worldSize
-    this.countdownText = this.add
-      .text(worldW / 2, worldH / 2, '0.9', {
-        fontFamily: 'Arial, "Microsoft YaHei", sans-serif',
-        fontSize: '112px',
-        color: '#ffffff',
-        stroke: '#000000',
-        strokeThickness: 5
-      })
-      .setOrigin(0.5)
-      .setDepth(200)
-
-    let count = 0.9
+    const pct = Math.round(SLOWMO.SPEED * 100)
+    this.slowMoStatusText?.setText(`子弹时间! 冻结中 4.0s`)
+    let count = 4.0
     this.time.addEvent({
       delay: 100,
-      repeat: 8, // 0.9, 0.8, ..., 0.1
+      repeat: 39, // 4.0, 3.9, ..., 0.1
       callback: () => {
         count -= 0.1
-        this.countdownText?.setText(count.toFixed(1))
+        // 前 1s 冻结阶段，之后慢放阶段
+        const label = count > 3.0 ? `冻结中` : `慢放中 (${pct}%)`
+        this.slowMoStatusText?.setText(`子弹时间! ${label} ${count.toFixed(1)}s`)
       }
     })
   }
@@ -1138,8 +1122,6 @@ export class ChaseScene extends BaseSubScene {
     if (this.freezeTimer) { this.freezeTimer.destroy(); this.freezeTimer = null }
     this.fugitive.frozen = false
     this.fugitive.resumeStateBinding()
-    this.countdownText?.destroy()
-    this.countdownText = null
     SlowMoManager.getInstance().resume(SLOWMO.TRANSITION_OUT_MS)
     this.slowMoStatusText?.setText(msg)
     this.logFugitiveState('[BT-RESUME] after restore')

@@ -146,12 +146,12 @@ export class TextSprite extends Phaser.GameObjects.Container {
   private currentBgAlpha: number
   private currentBorderColor: number
 
-  // .gif 滚动状态
-  private scrollCharOffset = 0
-  private scrollDisplayLength = 0
-  private scrollLongText = ''
+  // .gif 滚动状态（预渲染纹理方案）
   private scrollFontSize = 16
-  private lastScrollIntOffset = -1 // 缓存上一次整数偏移，减少 setText() 调用
+  private scrollImage: Phaser.GameObjects.Image | null = null
+  private scrollCanvasTexture: Phaser.Textures.CanvasTexture | null = null
+  private scrollPixelOffset = 0
+  private scrollTextPixelWidth = 0 // 单份完整文本的像素宽度（用于无缝循环）
 
   // 文字裁剪 mask(仅 .gif 模式,放在 scene 层级避免遮文字)
   private clipMask: Phaser.Display.Masks.GeometryMask | null = null
@@ -505,6 +505,14 @@ export class TextSprite extends Phaser.GameObjects.Container {
     return this
   }
 
+  /** 修改副文字字体大小 */
+  setSubtitleFontSize(size: number): this {
+    if (this.subtitleText) {
+      this.subtitleText.setFontSize(size)
+    }
+    return this
+  }
+
   /** 修改头部文字（split 布局专用） */
   setHeaderText(text: string): this {
     this.config.headerText = text
@@ -599,58 +607,108 @@ export class TextSprite extends Phaser.GameObjects.Container {
   // 内部:滚动逻辑
   // ──────────────────────────────────────────────
 
+  /**
+   * 预渲染滚动文字到 Canvas 纹理，用 Image 移动代替 Text 重绘
+   * 核心思路：将滚动文字一次性绘制到离屏 Canvas → 创建静态纹理 → Image 位移
+   * 彻底消除每帧 setText() 触发的 Canvas 重绘，实现 GPU 级丝滑滚动
+   */
   private prepareScrollText(): void {
     const base = this.config.text
-    if (!base) {
-      this.scrollLongText = ''
-      return
+    if (!base) return
+
+    // 清理旧资源
+    this.cleanupScrollResources()
+
+    const fontSize = this.scrollFontSize
+    const textColor = this.config.textColor
+      ? colorToHex(toColor(this.config.textColor) ?? 0xffffff)
+      : '#f5f5f5'
+
+    // 重复文本确保足够填充可视区域 + 一份用于无缝循环
+    const repeatCount = 4
+    const fullText = Array(repeatCount).fill(base).join(SCROLL_SEPARATOR)
+
+    // 测量文本像素宽度
+    const measureCanvas = document.createElement('canvas')
+    const measureCtx = measureCanvas.getContext('2d')!
+    measureCtx.font = `${fontSize}px ${FONT_FAMILY}`
+    const metrics = measureCtx.measureText(fullText)
+    const textWidth = Math.ceil(metrics.width)
+    const textHeight = Math.ceil(fontSize * 1.4)
+
+    this.scrollTextPixelWidth = textWidth
+
+    // 创建纹理：两份文本并排，实现无缝循环
+    const canvasWidth = textWidth * 2
+    const canvasHeight = textHeight
+
+    const textureKey = `scroll_${this.config.id || 'unnamed'}_${Date.now()}`
+    if (this.scene.textures.exists(textureKey)) {
+      this.scene.textures.remove(textureKey)
     }
-    // 中文约等宽,字符宽度 ≈ fontSize
-    const charWidth = this.scrollFontSize
-    const innerWidth = this.cardWidth - this.borderWidth * 2 - 16
-    this.scrollDisplayLength = Math.max(4, Math.floor(innerWidth / charWidth))
-    // 重复 base 多次,确保滚动有足够内容
-    const unitLen = base.length + SCROLL_SEPARATOR.length
-    const repeatCount = Math.max(
-      3,
-      Math.ceil((this.scrollDisplayLength + unitLen) / unitLen) + 2
+
+    this.scrollCanvasTexture = this.scene.textures.createCanvas(textureKey, canvasWidth, canvasHeight)
+    const ctx = this.scrollCanvasTexture!.getContext()
+    ctx.font = `${fontSize}px ${FONT_FAMILY}`
+    ctx.fillStyle = textColor
+    ctx.textBaseline = 'middle'
+    // 绘制两份文本
+    ctx.fillText(fullText, 0, canvasHeight / 2)
+    ctx.fillText(fullText, textWidth, canvasHeight / 2)
+    this.scrollCanvasTexture!.refresh()
+
+    // 创建 Image 显示纹理
+    this.scrollImage = this.scene.add.image(0, 0, textureKey)
+    this.scrollImage.setOrigin(0, 0.5)
+
+    // 定位到卡片内部左边界
+    const innerPadding = this.borderWidth + 8
+    this.scrollImage.setPosition(
+      -this.cardWidth / 2 + innerPadding,
+      0
     )
-    this.scrollLongText = Array(repeatCount).fill(base).join(SCROLL_SEPARATOR)
-    this.scrollCharOffset = 0
-    this.lastScrollIntOffset = -1
-    // .gif 滚动文字:左对齐到卡片内边界,便于像素级 x 偏移实现丝滑滚动
-    this.mainText.setOrigin(0, 0.5)
-    this.mainText.x = -innerWidth / 2
-    this.updateScrollDisplay()
+
+    // 应用裁剪 mask（与原来 mainText 的 mask 一致）
+    if (this.clipMask) {
+      this.scrollImage.setMask(this.clipMask)
+    }
+
+    // 隐藏原始 Text，加入 Image 到容器
+    this.mainText.setVisible(false)
+    this.add(this.scrollImage)
+
+    this.scrollPixelOffset = 0
   }
 
-  private updateScrollDisplay(): void {
-    if (!this.scrollLongText) return
-    const totalLen = this.scrollLongText.length
-    // 保留小数部分,实现像素级平滑滚动(而非字符跳动)
-    const offset = ((this.scrollCharOffset % totalLen) + totalLen) % totalLen
-    const intOffset = Math.floor(offset)
-    const frac = offset - intOffset
-    // 优化：仅在整数偏移变化时更新文字内容，减少 setText() 触发 Canvas 重绘
-    if (intOffset !== this.lastScrollIntOffset) {
-      this.lastScrollIntOffset = intOffset
-      // 多取 1 字符,用 mainText.x 偏移 frac 个字符宽度
-      let display = this.scrollLongText.substring(
-        intOffset,
-        intOffset + this.scrollDisplayLength + 1
-      )
-      // 循环补齐(防止末尾不足)
-      if (display.length < this.scrollDisplayLength + 1) {
-        display += this.scrollLongText.substring(
-          0,
-          this.scrollDisplayLength + 1 - display.length
-        )
-      }
-      this.mainText.setText(display)
+  /** 清理滚动相关资源（纹理 + Image） */
+  private cleanupScrollResources(): void {
+    if (this.scrollImage) {
+      this.scrollImage.destroy()
+      this.scrollImage = null
     }
-    // 像素级偏移:向左移动 frac 个字符宽度,视觉上文字连续滚动
-    const innerWidth = this.cardWidth - this.borderWidth * 2 - 16
-    this.mainText.x = -innerWidth / 2 - frac * this.scrollFontSize
+    if (this.scrollCanvasTexture) {
+      const key = this.scrollCanvasTexture.key
+      this.scrollCanvasTexture.destroy()
+      this.scrollCanvasTexture = null
+      if (this.scene.textures.exists(key)) {
+        this.scene.textures.remove(key)
+      }
+    }
+  }
+
+  /** 像素级滚动更新：直接移动 Image 位置，无任何文字重绘 */
+  private updateScrollDisplay(): void {
+    if (!this.scrollImage || this.scrollTextPixelWidth <= 0) return
+
+    const innerPadding = this.borderWidth + 8
+    const startX = -this.cardWidth / 2 + innerPadding
+
+    // 无缝循环：当偏移超过一份文本宽度时回卷
+    if (this.scrollPixelOffset >= this.scrollTextPixelWidth) {
+      this.scrollPixelOffset -= this.scrollTextPixelWidth
+    }
+
+    this.scrollImage.x = startX - this.scrollPixelOffset
   }
 
   // ──────────────────────────────────────────────
@@ -734,15 +792,11 @@ export class TextSprite extends Phaser.GameObjects.Container {
       this.maskGraphics.setPosition(this.x, this.y)
     }
 
-    // .gif 滚动
-    if (this.suffix === '.gif' && this.scrollLongText) {
+    // .gif 滚动：像素级位移，纯 GPU 纹理移动，无 Canvas 重绘
+    if (this.suffix === '.gif' && this.scrollImage && this.scrollTextPixelWidth > 0) {
       const speed = this.config.scrollSpeed ?? DEFAULT_SCROLL_SPEED
-      this.scrollCharOffset += (speed * delta) / 1000
-      // 取模防止累积过大(浮点精度)
-      const totalLen = this.scrollLongText.length
-      if (this.scrollCharOffset > totalLen) {
-        this.scrollCharOffset -= totalLen
-      }
+      // 像素/秒 = 字符速度 × 字号（与旧逻辑兼容）
+      this.scrollPixelOffset += (speed * this.scrollFontSize * delta) / 1000
       this.updateScrollDisplay()
     }
 
@@ -778,6 +832,8 @@ export class TextSprite extends Phaser.GameObjects.Container {
     if (this.scene && this.scene.events) {
       this.scene.events.off('update', this.onSceneUpdate, this)
     }
+    // 清理滚动资源（纹理 + Image）
+    this.cleanupScrollResources()
     // 清理 scene 层级的 mask Graphics
     this.maskGraphics?.destroy()
     this.maskGraphics = null

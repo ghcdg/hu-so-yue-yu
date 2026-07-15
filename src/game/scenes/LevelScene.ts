@@ -20,7 +20,6 @@ import { SfxManager } from '@/game/systems/SfxManager'
 import levelData from '@/game/data/levels/level_01_fish.json'
 import type { LevelData, InteractAction, DialogueData } from '@/game/data/types'
 import { toSentence } from '@/game/data/types'
-import { speakerManager } from '@/speakers/SpeakerManager'
 
 const LEVEL = levelData as LevelData
 
@@ -162,8 +161,6 @@ export class LevelScene extends Phaser.Scene {
       const sentence = toSentence(LEVEL.targetSentence)
       this.events.emit('reveal-sentence', sentence)
       eventBus.emit({ type: 'sentence-revealed', sentence })
-      // 朗读普通话释义(fire-and-forget,不阻塞游戏循环)
-      void speakerManager.speak(sentence.mandarin)
     })
 
     // ── E 互动:推进对话 / 触发可互动物件 / 触发 NPC 对话 ──

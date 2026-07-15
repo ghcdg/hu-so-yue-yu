@@ -3,9 +3,9 @@
   "name": "梦想和咸鱼",
   "themeTag": "打工和咸鱼有什么区别?",
   "targetSentence": {
-    "cantonese": "做人如果冇梦想,跟咸鱼有咩分别?",
-    "jyutping": "zou6 jan4 jyu4 gwo2 mou5 mung6 soeng2, gan1 haam4 jyu4 jau5 me1 faan1 bit6?",
-    "mandarin": "做人如果没有梦想,那跟咸鱼有什么分别?",
+    "cantonese_read": "做人如果冇梦想,同咸鱼有咩分别?",
+    "cantonese_show": "做人 如果 冇  梦想(mung6 soeng2),同  咸鱼(haam4 jyu4) 有 咩 分别?",
+    "mandarin_show": "做人 如果 没有 梦想,那跟 咸鱼 有 什么 分别?",
     "source": ""
   },
   "worldSize": { "width": 4800, "height": 1440 },
@@ -98,7 +98,7 @@
       "type": "static",
       "position": { "x": 4500, "y": 400 },
       "size": { "width": 400, "height": 40 },
-      "card": { "type": "object", "text": "目标平台", "suffix": ".jpg" }
+      "card": { "type": "object", "text": "目标平台(站中间)", "suffix": ".jpg" }
     }
   ],
   "coins": [
@@ -134,8 +134,8 @@
     {
       "id": "int_scroll_billboard",
       "card": {
-        "type": "object", "text": "广告: 先进团队用钉钉", "suffix": ".gif",
-        "scrollSpeed": 5, "interactable": true, "interactHint": "按 E 踢一脚"
+        "type": "object", "text": "(先进团队用 钉钉)", "suffix": ".gif",
+        "scrollSpeed": 6, "interactable": true, "interactHint": "按 E 踢一脚"
       },
       "position": { "x": 3900, "y": 655 },
       "action": "kick_fish"
